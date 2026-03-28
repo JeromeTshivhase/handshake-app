@@ -1,0 +1,16 @@
+package com.trustmarket.handshake.notification.entity;
+
+public enum NotificationEventType {
+    USER_CREATED,
+    PAYMENT_INITIATED,
+    PAYMENT_PAID,
+    PAYMENT_FAILED,
+    TRANSACTION_COMPLETED,
+    HANDSHAKE_REQUEST,
+    HANDSHAKE_ACCEPTED,
+    HANDSHAKE_REJECTED,
+    MEETUP_SCHEDULED,
+    OTP_ENABLED,
+    OTP_VERIFIED,
+    PASSWORD_RESET_REQUESTED
+}

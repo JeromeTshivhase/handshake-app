@@ -1,0 +1,82 @@
+server:
+  port: 8080
+
+spring:
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 10MB
+      max-request-size: 50MB
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/handshake
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+
+  flyway:
+    enabled: true
+
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:trustymarkets@gmail.com}
+    password: ${MAIL_PASSWORD:twmktsjmfhezzito}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+jwt:
+  secret: CHANGE_ME_TO_A_LONG_RANDOM_SECRET_32+_CHARS
+  access-expiration-seconds: 3600
+  refresh-expiration-seconds: 1209600
+
+payfast:
+  merchant-id: 10037006
+  merchant-key: dyun7jo0pqesu
+  passphrase: sslsllyghjwuwi8786gw
+  mode: sandbox
+  return-url: https://overintense-unrelatedly-lilly.ngrok-free.dev/payment/success
+  cancel-url: https://overintense-unrelatedly-lilly.ngrok-free.dev/payment/cancel
+  notify-url: https://overintense-unrelatedly-lilly.ngrok-free.dev/api/payments/payfast/notify
+
+app:
+  frontend:
+    base-url: http://localhost:3000
+  messaging:
+    email:
+      enabled: true
+      from: trustymarkets@gmail.com
+  notifications:
+    email:
+      enabled: true
+      from: trustymarkets@gmail.com
+  verification:
+    email:
+      enabled: true
+      from: ${MAIL_FROM:trustymarkets@gmail.com}
+    sms:
+      enabled: false
+    otp:
+      expires-minutes: 10
+      max-failed-attempts: 5
+      lock-minutes: 15
+  upload:
+    dir: ./uploads
+    base-url: http://localhost:8080/uploads
