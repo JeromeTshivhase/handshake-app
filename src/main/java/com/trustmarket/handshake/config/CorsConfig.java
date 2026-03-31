@@ -14,7 +14,8 @@ public class CorsConfig {
 
         cfg.setAllowedOrigins(List.of(
                 "http://localhost:8081",
-                "https://handshake-app-bd3y.onrender.com"
+                "https://handshake-app-bd3y.onrender.com",
+                "https://trustmarket-app-1.onrender.com"
         ));
 
         cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
