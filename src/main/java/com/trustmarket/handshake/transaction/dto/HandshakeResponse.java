@@ -23,8 +23,9 @@ public class HandshakeResponse {
     private LocalDateTime expiresAt;
     private LocalDateTime createdAt;
     private TransactionStatus transactionStatus;
+    private UUID transactionId;
 
-    public static HandshakeResponse from(Handshake h, TransactionStatus transactionStatus) {
+    public static HandshakeResponse from(Handshake h, TransactionStatus transactionStatus, UUID transactionId) {
         return HandshakeResponse.builder()
                 .id(h.getId())
                 .listingId(h.getListing().getId())
@@ -35,10 +36,11 @@ public class HandshakeResponse {
                 .expiresAt(h.getExpiresAt())
                 .createdAt(h.getCreatedAt())
                 .transactionStatus(transactionStatus)
+                .transactionId(transactionId)
                 .build();
     }
 
     public static HandshakeResponse from(Handshake h) {
-        return from(h, null);
+        return from(h, null, null);
     }
 }

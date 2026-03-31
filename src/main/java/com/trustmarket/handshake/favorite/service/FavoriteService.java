@@ -24,8 +24,7 @@ public class FavoriteService {
 
     @Transactional
     public void add(UUID userId, UUID listingId) {
-        favoriteRepository.findByUser_IdAndListing_Id(userId, listingId).ifPresent(f -> { return; });
-
+        if (favoriteRepository.findByUser_IdAndListing_Id(userId, listingId).isPresent()) return;
         User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("User not found"));
         Listing listing = listingRepository.findById(listingId).orElseThrow(() -> new NotFoundException("Listing not found"));
 

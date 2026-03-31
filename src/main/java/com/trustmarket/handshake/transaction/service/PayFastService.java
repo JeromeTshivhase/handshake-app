@@ -7,6 +7,7 @@ import com.trustmarket.handshake.transaction.entity.Payment;
 import com.trustmarket.handshake.transaction.entity.Transaction;
 import com.trustmarket.handshake.transaction.enums.PaymentProvider;
 import com.trustmarket.handshake.transaction.enums.PaymentStatus;
+import com.trustmarket.handshake.transaction.repository.HandshakeRepository;
 import com.trustmarket.handshake.transaction.repository.PaymentRepository;
 import com.trustmarket.handshake.safe_meetup.service.SafeMeetupOtpService;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +36,7 @@ public class PayFastService {
     private final ObjectMapper objectMapper;
     private final NotificationPublisher notificationPublisher;
     private final SafeMeetupOtpService safeMeetupOtpService;
+    private final HandshakeRepository handshakeRepository;
 
     @Value("${payfast.merchant-id}") private String merchantId;
     @Value("${payfast.merchant-key}") private String merchantKey;
@@ -130,13 +132,19 @@ public class PayFastService {
             transactionService.markEscrowHeld(txn);
             notificationPublisher.publishPaymentPaid(payment);
 
+            // --- Set handshake status to ESCROW_HELD and save ---
+            var handshake = txn.getHandshake();
+            if (handshake.getStatus() != com.trustmarket.handshake.transaction.enums.HandshakeStatus.ESCROW_HELD) {
+                handshake.setStatus(com.trustmarket.handshake.transaction.enums.HandshakeStatus.ESCROW_HELD);
+                handshakeRepository.save(handshake);
+            }
+
             log.info("Payment PAID and escrow held. payment={}, txn={}", payment.getId(), txn.getId());
 
             // --- Trigger OTP generation if eligible ---
             try {
-                var handshake = txn.getHandshake();
-                // Only enable OTP if handshake is ACCEPTED and transaction is ESCROW_HELD
-                if (handshake.getStatus() == com.trustmarket.handshake.transaction.enums.HandshakeStatus.ACCEPTED
+                // Only enable OTP if handshake is ESCROW_HELD and transaction is ESCROW_HELD
+                if (handshake.getStatus() == com.trustmarket.handshake.transaction.enums.HandshakeStatus.ESCROW_HELD
                         && txn.getStatus() == com.trustmarket.handshake.transaction.enums.TransactionStatus.ESCROW_HELD) {
                     // Use dummy coordinates (0,0) if not available; service will validate eligibility
                     safeMeetupOtpService.enableIfEligible(handshake.getId(), handshake.getBuyer().getId(), 0.0, 0.0);

@@ -1,7 +1,10 @@
 package com.trustmarket.handshake.auth.service;
 
+import com.trustmarket.handshake.auth.dto.RegisterRequest;
 import com.trustmarket.handshake.auth.repository.PasswordResetTokenRepository;
 import com.trustmarket.handshake.notification.service.NotificationPublisher;
+import com.trustmarket.handshake.shared.notification.NotificationService;
+import org.springframework.beans.factory.annotation.Qualifier;
 import com.trustmarket.handshake.shared.security.JwtService;
 import com.trustmarket.handshake.user.entity.User;
 import com.trustmarket.handshake.user.repository.RefreshTokenRepository;
@@ -45,6 +48,11 @@ class AuthServiceTest {
     private NotificationPublisher notificationPublisher;
     @Mock
     private UserVerificationService userVerificationService;
+    @Mock
+    @Qualifier("userNotificationService")
+    private NotificationService notificationService;
+    @Mock
+    private TwoFaService twoFaService;
     private AuthService authService;
 
     @BeforeEach
@@ -56,8 +64,10 @@ class AuthServiceTest {
                 jwtService,
                 userService,
                 userProfileService,
-                notificationPublisher,
-                passwordResetTokenRepository
+                notificationService,
+                twoFaService,
+                passwordResetTokenRepository,
+                userVerificationService
         );
     }
 
@@ -72,20 +82,20 @@ class AuthServiceTest {
             return user;
         });
 
-        User user = authService.register(
-                "user@example.com",
-                "password123",
-                "password123",
-                "Test",
-                "User",
-                "+27123456789",
-                "Cape Town",
-                "Western Cape"
-        );
+        RegisterRequest req = RegisterRequest.builder()
+                .email("user@example.com")
+                .password("password123")
+                .passwordConfirm("password123")
+                .firstName("Test")
+                .lastName("User")
+                .phone("+27123456789")
+                .city("Cape Town")
+                .province("Western Cape")
+                .build();
 
-        assertEquals(userId, user.getId());
-        assertEquals("user@example.com", user.getEmail());
+        authService.register(req);
+
         verify(userProfileService).updateProfile(eq(userId), eq(null), eq(null), eq("Cape Town"), eq("Western Cape"));
-        verify(notificationPublisher).publishUserCreated(user);
+        verify(notificationService).sendUserCreated(any(User.class));
     }
 }

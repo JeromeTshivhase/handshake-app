@@ -1,6 +1,7 @@
 package com.trustmarket.handshake.transaction.controller;
 
 import com.trustmarket.handshake.shared.api.ApiResponse;
+import com.trustmarket.handshake.shared.fraud.FraudDetectionService;
 import com.trustmarket.handshake.shared.security.AuthUtils;
 import com.trustmarket.handshake.transaction.dto.CreateHandshakeRequest;
 import com.trustmarket.handshake.transaction.dto.HandshakeResponse;
@@ -28,6 +29,7 @@ import java.util.UUID;
 public class HandshakeController {
     private final HandshakeService handshakeService;
     private final TransactionRepository transactionRepository;
+    private final FraudDetectionService fraudDetectionService;
 
     @GetMapping(value = "/me", produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Get my handshakes", operationId = "getMyHandshakes")
@@ -41,10 +43,10 @@ public class HandshakeController {
         PageRequest pageable = PageRequest.of(page, pageSize, Sort.by("createdAt").descending());
         Page<Handshake> handshakes = handshakeService.findByUserIdAndStatus(userId, status, pageable);
         Page<HandshakeResponse> responsePage = handshakes.map(h -> {
-            TransactionStatus txnStatus = transactionRepository.findByHandshake_Id(h.getId())
-                    .map(txn -> txn.getStatus())
-                    .orElse(null);
-            return HandshakeResponse.from(h, txnStatus);
+            var txnOpt = transactionRepository.findByHandshake_Id(h.getId());
+            TransactionStatus txnStatus = txnOpt.map(txn -> txn.getStatus()).orElse(null);
+            UUID txnId = txnOpt.map(txn -> txn.getId()).orElse(null);
+            return HandshakeResponse.from(h, txnStatus, txnId);
         });
         return ApiResponse.ok(responsePage);
     }
@@ -53,6 +55,7 @@ public class HandshakeController {
     @Operation(summary = "Create handshake", operationId = "createHandshake")
     public ApiResponse<HandshakeResponse> create(Authentication auth, @Valid @RequestBody CreateHandshakeRequest req) {
         UUID buyerId = AuthUtils.userId(auth);
+        fraudDetectionService.checkFraud(buyerId, "handshake_create");
         Handshake h = handshakeService.create(buyerId, req);
         return ApiResponse.ok(HandshakeResponse.from(h));
     }
@@ -61,6 +64,7 @@ public class HandshakeController {
     @Operation(summary = "Accept handshake", operationId = "acceptHandshake")
     public ApiResponse<HandshakeResponse> accept(Authentication auth, @PathVariable UUID id) {
         UUID sellerId = AuthUtils.userId(auth);
+        fraudDetectionService.checkFraud(sellerId, "handshake_accept");
         Handshake h = handshakeService.accept(sellerId, id);
         return ApiResponse.ok(HandshakeResponse.from(h));
     }
@@ -77,10 +81,10 @@ public class HandshakeController {
     public ApiResponse<HandshakeResponse> get(Authentication auth, @PathVariable UUID id) {
         UUID userId = AuthUtils.userId(auth);
         Handshake h = handshakeService.get(id, userId);
-        TransactionStatus txnStatus = transactionRepository.findByHandshake_Id(h.getId())
-                .map(txn -> txn.getStatus())
-                .orElse(null);
-        return ApiResponse.ok(HandshakeResponse.from(h, txnStatus));
+        var txnOpt = transactionRepository.findByHandshake_Id(h.getId());
+        TransactionStatus txnStatus = txnOpt.map(txn -> txn.getStatus()).orElse(null);
+        UUID txnId = txnOpt.map(txn -> txn.getId()).orElse(null);
+        return ApiResponse.ok(HandshakeResponse.from(h, txnStatus, txnId));
     }
 
     @GetMapping("/seller/me")
@@ -95,10 +99,10 @@ public class HandshakeController {
         Page<Handshake> handshakes =
                 handshakeService.findBySellerIdAndStatus(sellerId, status, pageable);
         Page<HandshakeResponse> responsePage = handshakes.map(h -> {
-            TransactionStatus txnStatus = transactionRepository.findByHandshake_Id(h.getId())
-                    .map(txn -> txn.getStatus())
-                    .orElse(null);
-            return HandshakeResponse.from(h, txnStatus);
+            var txnOpt = transactionRepository.findByHandshake_Id(h.getId());
+            TransactionStatus txnStatus = txnOpt.map(txn -> txn.getStatus()).orElse(null);
+            UUID txnId = txnOpt.map(txn -> txn.getId()).orElse(null);
+            return HandshakeResponse.from(h, txnStatus, txnId);
         });
         return ApiResponse.ok(responsePage);
     }
@@ -115,10 +119,10 @@ public class HandshakeController {
         Page<Handshake> handshakes =
                 handshakeService.findByBuyerIdAndStatus(buyerId, status, pageable);
         Page<HandshakeResponse> responsePage = handshakes.map(h -> {
-            TransactionStatus txnStatus = transactionRepository.findByHandshake_Id(h.getId())
-                    .map(txn -> txn.getStatus())
-                    .orElse(null);
-            return HandshakeResponse.from(h, txnStatus);
+            var txnOpt = transactionRepository.findByHandshake_Id(h.getId());
+            TransactionStatus txnStatus = txnOpt.map(txn -> txn.getStatus()).orElse(null);
+            UUID txnId = txnOpt.map(txn -> txn.getId()).orElse(null);
+            return HandshakeResponse.from(h, txnStatus, txnId);
         });
         return ApiResponse.ok(responsePage);
     }

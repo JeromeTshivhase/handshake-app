@@ -4,6 +4,7 @@ import com.trustmarket.handshake.shared.exception.BadRequestException;
 import com.trustmarket.handshake.shared.exception.NotFoundException;
 import com.trustmarket.handshake.user.entity.User;
 import com.trustmarket.handshake.user.repository.UserRepository;
+import com.trustmarket.handshake.user.repository.UserSettingsRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,6 +18,8 @@ import java.util.UUID;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final UserSettingsRepository userSettingsRepository;
+    private final com.trustmarket.handshake.shared.upload.FileStorageService fileStorageService;
 
     @Transactional(readOnly = true)
     public User getById(UUID id) {
@@ -78,5 +81,69 @@ public class UserService {
     private String normalizeOptional(String value) {
         String trimmed = value == null ? null : value.trim();
         return (trimmed == null || trimmed.isEmpty()) ? null : trimmed;
+    }
+
+    @Transactional(readOnly = true)
+    public com.trustmarket.handshake.user.dto.UserSettingsDto getNotificationSettings(UUID userId) {
+        var settings = userSettingsRepository.findById(userId)
+                .orElseGet(() -> {
+                    var s = new com.trustmarket.handshake.user.entity.UserSettings();
+                    s.setUserId(userId);
+                    s.setNotificationsEnabled(true);
+                    s.setEmailNotifications(true);
+                    s.setDarkMode(false);
+                    return s;
+                });
+        return com.trustmarket.handshake.user.dto.UserSettingsDto.builder()
+                .userId(settings.getUserId())
+                .notificationsEnabled(settings.isNotificationsEnabled())
+                .emailNotifications(settings.isEmailNotifications())
+                .darkMode(settings.isDarkMode())
+                .createdAt(settings.getCreatedAt())
+                .updatedAt(settings.getUpdatedAt())
+                .build();
+    }
+
+    @Transactional
+    public com.trustmarket.handshake.user.dto.UserSettingsDto updateNotificationSettings(UUID userId, com.trustmarket.handshake.user.dto.UserSettingsDto dto) {
+        var settings = userSettingsRepository.findById(userId)
+                .orElseGet(() -> {
+                    var s = new com.trustmarket.handshake.user.entity.UserSettings();
+                    s.setUserId(userId);
+                    s.setNotificationsEnabled(true);
+                    s.setEmailNotifications(true);
+                    s.setDarkMode(false);
+                    return s;
+                });
+        settings.setNotificationsEnabled(dto.isNotificationsEnabled());
+        settings.setEmailNotifications(dto.isEmailNotifications());
+        settings.setDarkMode(dto.isDarkMode());
+        userSettingsRepository.save(settings);
+        return getNotificationSettings(userId);
+    }
+
+    @Transactional
+    public void deleteAccount(UUID userId) {
+        // TODO: Delete or anonymize all user data (listings, handshakes, messages, reviews, notifications, etc.)
+        // For now, just delete the user and settings
+        userSettingsRepository.deleteById(userId);
+        userRepository.deleteById(userId);
+    }
+
+    @Transactional(readOnly = true)
+    public Object exportAccount(UUID userId) {
+        // TODO: Aggregate all user data (profile, listings, handshakes, messages, reviews, etc.)
+        // For now, just return the user entity
+        User user = getById(userId);
+        return user;
+    }
+
+    @Transactional
+    public String uploadAvatar(UUID userId, org.springframework.web.multipart.MultipartFile file) {
+        String url = fileStorageService.store(file);
+        User user = getById(userId);
+        user.setProfilePictureUrl(url);
+        userRepository.save(user);
+        return url;
     }
 }

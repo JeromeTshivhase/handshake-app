@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/api/moderation")
 @RequiredArgsConstructor
@@ -36,5 +38,26 @@ public class ModerationController {
             @RequestParam(defaultValue = "50") int pageSize
     ) {
         return ApiResponse.ok(moderationService.listOpen(page, pageSize).map(ReportResponse::from));
+    }
+
+    // TODO: Restrict the following endpoints to ADMIN role only using @PreAuthorize or similar
+    // @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping(value = "/reports/all", produces = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "List all reports (admin only)", operationId = "listAllReports")
+    public ApiResponse<Page<ReportResponse>> allReports(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int pageSize
+    ) {
+        // Only admins should access this
+        return ApiResponse.ok(moderationService.listAll(page, pageSize).map(ReportResponse::from));
+    }
+
+    // TODO: Add endpoints for admin actions (resolve, block user, etc.)
+    // @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping(value = "/reports/{id}/resolve", produces = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "Resolve a report (admin only)", operationId = "resolveReport")
+    public ApiResponse<Void> resolveReport(@PathVariable UUID id) {
+        moderationService.resolveReport(id);
+        return ApiResponse.ok(null);
     }
 }

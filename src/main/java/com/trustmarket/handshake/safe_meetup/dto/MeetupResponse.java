@@ -19,6 +19,7 @@ public class MeetupResponse {
     private String addressLabel;
     private LocalDateTime scheduledTime;
     private MeetupStatus status;
+    private UUID transactionId;
 
     public static MeetupResponse from(Meetup m) {
         return MeetupResponse.builder()
@@ -29,6 +30,19 @@ public class MeetupResponse {
                 .addressLabel(m.getAddressLabel())
                 .scheduledTime(m.getScheduledTime())
                 .status(m.getStatus())
+                .build();
+    }
+
+    public static MeetupResponse from(Meetup m, UUID transactionId) {
+        return MeetupResponse.builder()
+                .id(m.getId())
+                .handshakeId(m.getHandshake().getId())
+                .latitude(m.getLatitude())
+                .longitude(m.getLongitude())
+                .addressLabel(m.getAddressLabel())
+                .scheduledTime(m.getScheduledTime())
+                .status(m.getStatus())
+                .transactionId(transactionId)
                 .build();
     }
 }

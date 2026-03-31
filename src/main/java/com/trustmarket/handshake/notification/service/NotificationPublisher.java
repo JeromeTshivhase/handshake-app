@@ -6,24 +6,251 @@ import com.trustmarket.handshake.transaction.entity.Payment;
 import com.trustmarket.handshake.transaction.entity.Transaction;
 import com.trustmarket.handshake.user.entity.User;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.yaml.snakeyaml.Yaml;
 
+import java.io.InputStream;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
 public class NotificationPublisher {
+    private String safeReplace(String template, String target, String value) {
+        return (template == null || template.isEmpty()) ? "" : template.replace(target, value);
+    }
+
+    private String safeReplace(String template, String target1, String value1, String target2, String value2) {
+        if (template == null || template.isEmpty()) return "";
+        return template.replace(target1, value1).replace(target2, value2);
+    }
+
+    public void publishHandshakeRequest(com.trustmarket.handshake.transaction.entity.Handshake handshake) {
+        eventPublisher.publishEvent(new DomainNotificationEvent(
+                handshake.getSeller().getId(),
+                NotificationEventType.HANDSHAKE_REQUEST,
+                yamlMsg("notification", "handshake", "request"),
+                safeReplace(yamlMsg("notification", "handshake", "request_body"), "{0}", handshake.getListing().getTitle()),
+                payloadOf(
+                        "handshakeId", handshake.getId().toString(),
+                        "listingId", handshake.getListing().getId().toString(),
+                        "buyerId", handshake.getBuyer().getId().toString(),
+                        "sellerId", handshake.getSeller().getId().toString(),
+                        "agreedPrice", handshake.getAgreedPrice() == null ? null : handshake.getAgreedPrice().toPlainString(),
+                        "status", handshake.getStatus().name()
+                ),
+                true
+        ));
+    }
+
+    public void publishHandshakeAccepted(com.trustmarket.handshake.transaction.entity.Handshake handshake) {
+        eventPublisher.publishEvent(new DomainNotificationEvent(
+                handshake.getBuyer().getId(),
+                NotificationEventType.HANDSHAKE_ACCEPTED,
+                yamlMsg("notification", "handshake", "accepted"),
+                safeReplace(yamlMsg("notification", "handshake", "accepted_body"), "{0}", handshake.getListing().getTitle()),
+                payloadOf(
+                        "handshakeId", handshake.getId().toString(),
+                        "listingId", handshake.getListing().getId().toString(),
+                        "buyerId", handshake.getBuyer().getId().toString(),
+                        "sellerId", handshake.getSeller().getId().toString(),
+                        "agreedPrice", handshake.getAgreedPrice() == null ? null : handshake.getAgreedPrice().toPlainString(),
+                        "status", handshake.getStatus().name()
+                ),
+                true
+        ));
+    }
+
+    public void publishHandshakeRejected(com.trustmarket.handshake.transaction.entity.Handshake handshake) {
+        eventPublisher.publishEvent(new DomainNotificationEvent(
+                handshake.getBuyer().getId(),
+                NotificationEventType.HANDSHAKE_REJECTED,
+                yamlMsg("notification", "handshake", "rejected"),
+                safeReplace(yamlMsg("notification", "handshake", "rejected_body"), "{0}", handshake.getListing().getTitle()),
+                payloadOf(
+                        "handshakeId", handshake.getId().toString(),
+                        "listingId", handshake.getListing().getId().toString(),
+                        "buyerId", handshake.getBuyer().getId().toString(),
+                        "sellerId", handshake.getSeller().getId().toString(),
+                        "agreedPrice", handshake.getAgreedPrice() == null ? null : handshake.getAgreedPrice().toPlainString(),
+                        "status", handshake.getStatus().name()
+                ),
+                true
+        ));
+    }
+
+    public void publishMeetupScheduled(com.trustmarket.handshake.safe_meetup.entity.Meetup meetup) {
+        var handshake = meetup.getHandshake();
+        eventPublisher.publishEvent(new DomainNotificationEvent(
+                handshake.getBuyer().getId(),
+                NotificationEventType.MEETUP_SCHEDULED,
+                yamlMsg("notification", "meetup", "scheduled"),
+                safeReplace(yamlMsg("notification", "meetup", "scheduled_body"), "{0}", meetup.getAddressLabel()),
+                payloadOf(
+                        "handshakeId", handshake.getId().toString(),
+                        "meetupId", meetup.getId() != null ? meetup.getId().toString() : null,
+                        "scheduledTime", meetup.getScheduledTime() != null ? meetup.getScheduledTime().toString() : null,
+                        "latitude", meetup.getLatitude(),
+                        "longitude", meetup.getLongitude(),
+                        "addressLabel", meetup.getAddressLabel()
+                ),
+                true
+        ));
+        eventPublisher.publishEvent(new DomainNotificationEvent(
+                handshake.getSeller().getId(),
+                NotificationEventType.MEETUP_SCHEDULED,
+                yamlMsg("notification", "meetup", "scheduled"),
+                safeReplace(yamlMsg("notification", "meetup", "scheduled_body"), "{0}", meetup.getAddressLabel()),
+                payloadOf(
+                        "handshakeId", handshake.getId().toString(),
+                        "meetupId", meetup.getId() != null ? meetup.getId().toString() : null,
+                        "scheduledTime", meetup.getScheduledTime() != null ? meetup.getScheduledTime().toString() : null,
+                        "latitude", meetup.getLatitude(),
+                        "longitude", meetup.getLongitude(),
+                        "addressLabel", meetup.getAddressLabel()
+                ),
+                true
+        ));
+    }
+
+    public void publishOtpEnabled(com.trustmarket.handshake.transaction.entity.Handshake handshake) {
+        eventPublisher.publishEvent(new DomainNotificationEvent(
+                handshake.getBuyer().getId(),
+                NotificationEventType.OTP_ENABLED,
+                yamlMsg("notification", "otp", "enabled"),
+                safeReplace(yamlMsg("notification", "otp", "enabled_body"), "{0}", handshake.getListing().getTitle()),
+                payloadOf(
+                        "handshakeId", handshake.getId().toString(),
+                        "listingId", handshake.getListing().getId().toString(),
+                        "buyerId", handshake.getBuyer().getId().toString(),
+                        "sellerId", handshake.getSeller().getId().toString(),
+                        "status", handshake.getStatus().name()
+                ),
+                true
+        ));
+        eventPublisher.publishEvent(new DomainNotificationEvent(
+                handshake.getSeller().getId(),
+                NotificationEventType.OTP_ENABLED,
+                yamlMsg("notification", "otp", "enabled"),
+                safeReplace(yamlMsg("notification", "otp", "enabled_body"), "{0}", handshake.getListing().getTitle()),
+                payloadOf(
+                        "handshakeId", handshake.getId().toString(),
+                        "listingId", handshake.getListing().getId().toString(),
+                        "buyerId", handshake.getBuyer().getId().toString(),
+                        "sellerId", handshake.getSeller().getId().toString(),
+                        "status", handshake.getStatus().name()
+                ),
+                true
+        ));
+    }
+
+    public void publishOtpVerified(com.trustmarket.handshake.transaction.entity.Handshake handshake) {
+        eventPublisher.publishEvent(new DomainNotificationEvent(
+                handshake.getBuyer().getId(),
+                NotificationEventType.OTP_VERIFIED,
+                yamlMsg("notification", "otp", "verified"),
+                safeReplace(yamlMsg("notification", "otp", "verified_body"), "{0}", handshake.getListing().getTitle()),
+                payloadOf(
+                        "handshakeId", handshake.getId().toString(),
+                        "listingId", handshake.getListing().getId().toString(),
+                        "buyerId", handshake.getBuyer().getId().toString(),
+                        "sellerId", handshake.getSeller().getId().toString(),
+                        "status", handshake.getStatus().name()
+                ),
+                true
+        ));
+        eventPublisher.publishEvent(new DomainNotificationEvent(
+                handshake.getSeller().getId(),
+                NotificationEventType.OTP_VERIFIED,
+                yamlMsg("notification", "otp", "verified"),
+                safeReplace(yamlMsg("notification", "otp", "verified_body"), "{0}", handshake.getListing().getTitle()),
+                payloadOf(
+                        "handshakeId", handshake.getId().toString(),
+                        "listingId", handshake.getListing().getId().toString(),
+                        "buyerId", handshake.getBuyer().getId().toString(),
+                        "sellerId", handshake.getSeller().getId().toString(),
+                        "status", handshake.getStatus().name()
+                ),
+                true
+        ));
+    }
+
+    public void publishHandshakeCancelled(com.trustmarket.handshake.transaction.entity.Handshake handshake) {
+        eventPublisher.publishEvent(new DomainNotificationEvent(
+                handshake.getBuyer().getId(),
+                NotificationEventType.HANDSHAKE_CANCELLED,
+                yamlMsg("notification", "handshake", "cancelled"),
+                safeReplace(yamlMsg("notification", "handshake", "cancelled_body"), "{0}", handshake.getListing().getTitle()),
+                payloadOf(
+                        "handshakeId", handshake.getId().toString(),
+                        "listingId", handshake.getListing().getId().toString(),
+                        "buyerId", handshake.getBuyer().getId().toString(),
+                        "sellerId", handshake.getSeller().getId().toString(),
+                        "agreedPrice", handshake.getAgreedPrice() == null ? null : handshake.getAgreedPrice().toPlainString(),
+                        "status", handshake.getStatus().name()
+                ),
+                true
+        ));
+        eventPublisher.publishEvent(new DomainNotificationEvent(
+                handshake.getSeller().getId(),
+                NotificationEventType.HANDSHAKE_CANCELLED,
+                yamlMsg("notification", "handshake", "cancelled"),
+                safeReplace(yamlMsg("notification", "handshake", "cancelled_body"), "{0}", handshake.getListing().getTitle()),
+                payloadOf(
+                        "handshakeId", handshake.getId().toString(),
+                        "listingId", handshake.getListing().getId().toString(),
+                        "buyerId", handshake.getBuyer().getId().toString(),
+                        "sellerId", handshake.getSeller().getId().toString(),
+                        "agreedPrice", handshake.getAgreedPrice() == null ? null : handshake.getAgreedPrice().toPlainString(),
+                        "status", handshake.getStatus().name()
+                ),
+                true
+        ));
+    }
 
     private final ApplicationEventPublisher eventPublisher;
+
+    @Value("${app.domain:https://your-app-domain}")
+    private String appDomain;
+
+    private static final Map<String, Object> yamlMessages;
+    static {
+        Yaml yaml = new Yaml();
+        try (InputStream in = NotificationPublisher.class.getResourceAsStream("/messages.yaml")) {
+            yamlMessages = yaml.load(in);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to load messages.yaml", e);
+        }
+    }
+
+    private String yamlMsg(String... path) {
+        Object node = yamlMessages;
+        for (String key : path) {
+            if (node instanceof Map) {
+                node = ((Map<?, ?>) node).get(key);
+            } else {
+                // Log missing template path
+                System.err.println("[NotificationPublisher] yamlMsg: Path not found or not a map: " + String.join("/", path));
+                return "[Missing template: " + String.join("/", path) + "]";
+            }
+        }
+        if (node == null) {
+            // Log missing template value
+            System.err.println("[NotificationPublisher] yamlMsg: Template missing for path: " + String.join("/", path));
+            return "[Missing template: " + String.join("/", path) + "]";
+        }
+        return node.toString();
+    }
 
     public void publishUserCreated(User user) {
         eventPublisher.publishEvent(new DomainNotificationEvent(
                 user.getId(),
                 NotificationEventType.USER_CREATED,
-                "Welcome to Handshake",
-                "Your account has been created successfully.",
+                yamlMsg("notification", "user", "created"),
+                yamlMsg("notification", "user", "created_body"),
                 payloadOf(
                         "userId", user.getId().toString(),
                         "email", user.getEmail()
@@ -40,8 +267,8 @@ public class NotificationPublisher {
         eventPublisher.publishEvent(new DomainNotificationEvent(
                 txn.getBuyer().getId(),
                 NotificationEventType.PAYMENT_INITIATED,
-                "Payment started",
-                "Your payment for \"" + txn.getListing().getTitle() + "\" has been initiated.",
+                yamlMsg("notification", "payment", "initiated"),
+                safeReplace(yamlMsg("notification", "payment", "initiated_body"), "{0}", txn.getListing().getTitle()),
                 payload,
                 true
         ));
@@ -49,8 +276,8 @@ public class NotificationPublisher {
         eventPublisher.publishEvent(new DomainNotificationEvent(
                 txn.getSeller().getId(),
                 NotificationEventType.PAYMENT_INITIATED,
-                "Buyer started payment",
-                "A payment of " + amount + " has been initiated for your listing \"" + txn.getListing().getTitle() + "\".",
+                yamlMsg("notification", "payment", "initiated_seller"),
+                safeReplace(yamlMsg("notification", "payment", "initiated_seller_body"), "{0}", amount == null ? "" : amount, "{1}", txn.getListing().getTitle()),
                 payload,
                 true
         ));
@@ -63,8 +290,8 @@ public class NotificationPublisher {
         eventPublisher.publishEvent(new DomainNotificationEvent(
                 txn.getBuyer().getId(),
                 NotificationEventType.PAYMENT_PAID,
-                "Payment successful",
-                "Your payment for \"" + txn.getListing().getTitle() + "\" was successful and is now held in escrow.",
+                yamlMsg("notification", "payment", "paid"),
+                safeReplace(yamlMsg("notification", "payment", "paid_body"), "{0}", txn.getListing().getTitle()),
                 payload,
                 true
         ));
@@ -72,8 +299,8 @@ public class NotificationPublisher {
         eventPublisher.publishEvent(new DomainNotificationEvent(
                 txn.getSeller().getId(),
                 NotificationEventType.PAYMENT_PAID,
-                "Payment received in escrow",
-                "Payment for your listing \"" + txn.getListing().getTitle() + "\" was successful and is now held in escrow.",
+                yamlMsg("notification", "payment", "paid_seller"),
+                safeReplace(yamlMsg("notification", "payment", "paid_seller_body"), "{0}", txn.getListing().getTitle()),
                 payload,
                 true
         ));
@@ -86,8 +313,8 @@ public class NotificationPublisher {
         eventPublisher.publishEvent(new DomainNotificationEvent(
                 txn.getBuyer().getId(),
                 NotificationEventType.PAYMENT_FAILED,
-                "Payment failed",
-                "Your payment for \"" + txn.getListing().getTitle() + "\" failed.",
+                yamlMsg("notification", "payment", "failed"),
+                safeReplace(yamlMsg("notification", "payment", "failed_body"), "{0}", txn.getListing().getTitle()),
                 payload,
                 true
         ));
@@ -95,8 +322,8 @@ public class NotificationPublisher {
         eventPublisher.publishEvent(new DomainNotificationEvent(
                 txn.getSeller().getId(),
                 NotificationEventType.PAYMENT_FAILED,
-                "Buyer payment failed",
-                "The payment attempt for your listing \"" + txn.getListing().getTitle() + "\" failed.",
+                yamlMsg("notification", "payment", "failed_seller"),
+                safeReplace(yamlMsg("notification", "payment", "failed_seller_body"), "{0}", txn.getListing().getTitle()),
                 payload,
                 true
         ));
@@ -116,8 +343,8 @@ public class NotificationPublisher {
         eventPublisher.publishEvent(new DomainNotificationEvent(
                 txn.getBuyer().getId(),
                 NotificationEventType.TRANSACTION_COMPLETED,
-                "Transaction completed",
-                "You completed the transaction for \"" + txn.getListing().getTitle() + "\".",
+                yamlMsg("notification", "transaction", "completed"),
+                safeReplace(yamlMsg("notification", "transaction", "completed_body"), "{0}", txn.getListing().getTitle()),
                 payload,
                 true
         ));
@@ -125,20 +352,20 @@ public class NotificationPublisher {
         eventPublisher.publishEvent(new DomainNotificationEvent(
                 txn.getSeller().getId(),
                 NotificationEventType.TRANSACTION_COMPLETED,
-                "Sale completed",
-                "Your transaction for \"" + txn.getListing().getTitle() + "\" has been completed.",
+                yamlMsg("notification", "transaction", "completed_seller"),
+                safeReplace(yamlMsg("notification", "transaction", "completed_seller_body"), "{0}", txn.getListing().getTitle()),
                 payload,
                 true
         ));
     }
 
     public void publishPasswordReset(User user, String token) {
-        String resetLink = "https://your-app-domain/reset-password?token=" + token;
+        String resetLink = appDomain + "/reset-password?token=" + token;
         eventPublisher.publishEvent(new DomainNotificationEvent(
                 user.getId(),
                 NotificationEventType.PASSWORD_RESET_REQUESTED,
-                "Password Reset Request",
-                "You requested a password reset. Use the following link to reset your password: " + resetLink + "\nIf you did not request this, please ignore this email.",
+                yamlMsg("notification", "password", "reset"),
+                safeReplace(yamlMsg("notification", "password", "reset_body"), "{0}", resetLink),
                 payloadOf(
                         "userId", user.getId().toString(),
                         "email", user.getEmail(),
@@ -177,4 +404,3 @@ public class NotificationPublisher {
         return payload;
     }
 }
-

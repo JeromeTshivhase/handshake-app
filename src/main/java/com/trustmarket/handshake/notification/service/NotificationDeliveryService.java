@@ -47,22 +47,27 @@ public class NotificationDeliveryService {
 
     private void deliverInApp(Notification notification) {
         if (!isInAppEnabled(notification.getUserId())) {
+            log.info("In-app notification delivery skipped for user {} due to user settings", notification.getUserId());
             return;
         }
-
-        messagingTemplate.convertAndSendToUser(notification.getUserId().toString(), "/queue/notifications",
-                WsNotificationEvent.builder()
-                        .id(notification.getId())
-                        .type(notification.getType())
-                        .title(notification.getTitle())
-                        .message(notification.getMessage())
-                        .payload(readPayload(notification.getPayloadJson()))
-                        .createdAt(notification.getCreatedAt())
-                        .build());
+        try {
+            messagingTemplate.convertAndSendToUser(notification.getUserId().toString(), "/queue/notifications",
+                    WsNotificationEvent.builder()
+                            .id(notification.getId())
+                            .type(notification.getType())
+                            .title(notification.getTitle())
+                            .message(notification.getMessage())
+                            .payload(readPayload(notification.getPayloadJson()))
+                            .createdAt(notification.getCreatedAt())
+                            .build());
+        } catch (Exception e) {
+            log.error("Failed to deliver in-app notification {} to user {}: {}", notification.getId(), notification.getUserId(), e.getMessage(), e);
+        }
     }
 
     private void deliverEmail(Notification notification) {
         if (!emailEnabled || !isEmailEnabled(notification.getUserId())) {
+            log.info("Email notification delivery skipped for user {} due to settings or global disable", notification.getUserId());
             return;
         }
 
@@ -114,5 +119,9 @@ public class NotificationDeliveryService {
             return Collections.emptyMap();
         }
     }
-}
 
+    // TODO: For distributed notification delivery at scale, consider using a message queue (e.g., RabbitMQ, Kafka)
+    // and a dedicated notification worker service to process and deliver notifications asynchronously.
+    // Current implementation is synchronous and may not scale for high throughput.
+    // See NotificationEventListener and NotificationDeliveryService for event-driven delivery.
+}

@@ -42,4 +42,18 @@ public class ModerationService {
         Pageable pageable = PageRequest.of(page, pageSize);
         return reportRepository.findByStatusOrderByCreatedAtDesc(ReportStatus.OPEN, pageable);
     }
+
+    @Transactional(readOnly = true)
+    public Page<Report> listAll(int page, int pageSize) {
+        Pageable pageable = PageRequest.of(page, pageSize);
+        return reportRepository.findAll(pageable);
+    }
+
+    @Transactional
+    public void resolveReport(UUID reportId) {
+        Report report = reportRepository.findById(reportId)
+                .orElseThrow(() -> new NotFoundException("Report not found: " + reportId));
+        report.setStatus(ReportStatus.RESOLVED);
+        reportRepository.save(report);
+    }
 }

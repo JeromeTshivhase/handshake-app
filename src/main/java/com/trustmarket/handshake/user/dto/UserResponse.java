@@ -42,4 +42,7 @@ public class UserResponse {
     private String city;
     private String province;
     private boolean verified;
+
+    // Indicates if 2FA is enabled for the user
+    private boolean twoFaEnabled;
 }

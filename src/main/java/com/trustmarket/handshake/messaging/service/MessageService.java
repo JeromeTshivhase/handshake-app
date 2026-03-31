@@ -106,4 +106,30 @@ public class MessageService {
         return messageRepository.findByConversation_IdOrderByCreatedAtAsc(conversationId, pageable)
                 .map(MessageResponse::fromEntity);
     }
+
+    @Transactional
+    public int markAllAsRead(UUID conversationId, UUID userId) {
+        int updated = messageRepository.markAllAsReadByConversationAndUser(conversationId, userId);
+        if (updated > 0) {
+            Conversation c = conversationRepository.findById(conversationId)
+                    .orElseThrow(() -> new NotFoundException("Conversation not found: " + conversationId));
+            c.setUnreadCount(0);
+            conversationRepository.save(c);
+        }
+        return updated;
+    }
+
+    @Transactional
+    public int markAsRead(UUID conversationId, UUID messageId, UUID userId) {
+        int updated = messageRepository.markAsReadByIdAndUser(messageId, userId);
+        if (updated > 0) {
+            Conversation c = conversationRepository.findById(conversationId)
+                    .orElseThrow(() -> new NotFoundException("Conversation not found: " + conversationId));
+            long unread = messageRepository.findByConversation_IdOrderByCreatedAtAsc(conversationId, Pageable.unpaged())
+                    .stream().filter(m -> !m.isRead() && !m.getSender().getId().equals(userId)).count();
+            c.setUnreadCount(unread);
+            conversationRepository.save(c);
+        }
+        return updated;
+    }
 }

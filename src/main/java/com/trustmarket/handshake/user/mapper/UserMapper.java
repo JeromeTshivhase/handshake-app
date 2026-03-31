@@ -34,6 +34,7 @@ public class UserMapper {
                 .city(u.getCity())
                 .province(u.getProvince())
                 .verified(u.isVerified())
+                .twoFaEnabled(u.isTwoFaEnabled())
                 .build();
     }
 

@@ -48,11 +48,21 @@ class PayFastServiceTest {
     @Mock
     private SafeMeetupOtpService safeMeetupOtpService;
 
+    @Mock
+    private com.trustmarket.handshake.transaction.repository.HandshakeRepository handshakeRepository;
+
     private PayFastService payFastService;
 
     @BeforeEach
     void setUp() {
-        payFastService = new PayFastService(paymentRepository, transactionService, new ObjectMapper(), notificationPublisher, safeMeetupOtpService);
+        payFastService = new PayFastService(
+            paymentRepository,
+            transactionService,
+            new ObjectMapper(),
+            notificationPublisher,
+            safeMeetupOtpService,
+            handshakeRepository
+        );
         ReflectionTestUtils.setField(payFastService, "passphrase", "");
         ReflectionTestUtils.setField(payFastService, "merchantId", "1000");
         ReflectionTestUtils.setField(payFastService, "merchantKey", "key");

@@ -1,7 +1,9 @@
 package com.trustmarket.handshake.user.service;
 
+import com.trustmarket.handshake.shared.upload.FileStorageService;
 import com.trustmarket.handshake.user.entity.User;
 import com.trustmarket.handshake.user.repository.UserRepository;
+import com.trustmarket.handshake.user.repository.UserSettingsRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,12 +23,16 @@ class UserServiceTest {
 
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private UserSettingsRepository userSettingsRepository;
+    @Mock
+    private FileStorageService fileStorageService;
 
     private UserService userService;
 
     @BeforeEach
     void setUp() {
-        userService = new UserService(userRepository);
+        userService = new UserService(userRepository, userSettingsRepository, fileStorageService);
     }
 
     @Test
@@ -75,4 +81,3 @@ class UserServiceTest {
         assertNotNull(updated.getPhoneVerifiedAt());
     }
 }
-

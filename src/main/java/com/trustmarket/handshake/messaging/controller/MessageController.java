@@ -51,4 +51,27 @@ public class MessageController {
         UUID userId = AuthUtils.userId(auth);
         return ApiResponse.ok(messageService.list(conversationId, userId, page, pageSize));
     }
+
+    @PostMapping("/mark-read")
+    public ApiResponse<Integer> markAllAsRead(
+            @PathVariable UUID conversationId,
+            Authentication auth) {
+        UUID userId = AuthUtils.userId(auth);
+        int updated = messageService.markAllAsRead(conversationId, userId);
+        return ApiResponse.ok(updated);
+    }
+
+    @PostMapping("/{messageId}/mark-read")
+    public ApiResponse<Integer> markAsRead(
+            @PathVariable UUID conversationId,
+            @PathVariable UUID messageId,
+            Authentication auth) {
+        UUID userId = AuthUtils.userId(auth);
+        int updated = messageService.markAsRead(conversationId, messageId, userId);
+        return ApiResponse.ok(updated);
+    }
+
+    // TODO: Add abuse prevention (rate limiting) for messaging
+    // Example: Use a rate limiter (e.g., Bucket4j, Redis, or Guava RateLimiter) to limit messages per user per minute
+    // This should be enforced in the service or via a filter/aspect
 }

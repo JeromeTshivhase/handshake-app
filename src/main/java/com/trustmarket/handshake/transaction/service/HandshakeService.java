@@ -3,6 +3,7 @@ package com.trustmarket.handshake.transaction.service;
 import com.trustmarket.handshake.listing.entity.Listing;
 import com.trustmarket.handshake.listing.entity.ListingStatus;
 import com.trustmarket.handshake.listing.repository.ListingRepository;
+import com.trustmarket.handshake.notification.service.NotificationPublisher;
 import com.trustmarket.handshake.safe_meetup.service.OtpRedisStore;
 import com.trustmarket.handshake.safe_meetup.service.OtpService;
 import com.trustmarket.handshake.shared.exception.BadRequestException;
@@ -33,6 +34,7 @@ public class HandshakeService {
     private final TransactionService transactionService;
     private final OtpService otpService;
     private final OtpRedisStore otpRedisStore;
+    private final NotificationPublisher notificationPublisher;
 
     @Value("${otp.expires-minutes:10}")
     private long otpExpiresMinutes;
@@ -92,7 +94,7 @@ public class HandshakeService {
         handshake = handshakeRepository.save(handshake);
 
         // DO NOT CHANGE LISTING STATUS HERE! It MUST remain ACTIVE until sold or deactivated.
-
+        notificationPublisher.publishHandshakeRequest(handshake);
         return handshake;
     }
 
@@ -134,6 +136,7 @@ public class HandshakeService {
         h = handshakeRepository.save(h);
         otpRedisStore.put(h.getId(), otp, Duration.ofHours(otpRedisTtlHours));
         transactionService.createFromAcceptedHandshake(h);
+        notificationPublisher.publishHandshakeAccepted(h);
         return h;
     }
 
@@ -155,6 +158,7 @@ public class HandshakeService {
 
         // Listing remains ACTIVE
         otpRedisStore.delete(h.getId());
+        notificationPublisher.publishHandshakeRejected(h);
         return h;
     }
 
@@ -175,6 +179,7 @@ public class HandshakeService {
 
         // Listing remains ACTIVE
         otpRedisStore.delete(h.getId());
+        notificationPublisher.publishHandshakeCancelled(h);
         return h;
     }
 

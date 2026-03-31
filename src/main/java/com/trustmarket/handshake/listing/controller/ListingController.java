@@ -4,6 +4,7 @@ import com.trustmarket.handshake.listing.dto.*;
 import com.trustmarket.handshake.listing.service.ListingService;
 import com.trustmarket.handshake.shared.api.ApiResponse;
 import com.trustmarket.handshake.shared.security.AuthUtils;
+import com.trustmarket.handshake.shared.security.OwnershipService;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.data.domain.Page;
 import org.springframework.http.MediaType;
@@ -18,8 +19,8 @@ import java.util.UUID;
 @RequestMapping("/api/listings")
 @RequiredArgsConstructor
 public class ListingController {
-
     private final ListingService listingService;
+    private final OwnershipService ownershipService;
 
     /**
      * Create listing (seller = current user)
@@ -99,6 +100,7 @@ public class ListingController {
     @Operation(summary = "Update listing", operationId = "updateListing")
     public ApiResponse<ListingResponse> update(Authentication auth, @PathVariable UUID id, @RequestBody UpdateListingRequest req) {
         UUID sellerId = AuthUtils.userId(auth);
+        ownershipService.assertListingOwner(id, sellerId);
         return ApiResponse.ok(listingService.update(sellerId, id, req));
     }
 
@@ -106,6 +108,7 @@ public class ListingController {
     @Operation(summary = "Delete listing", operationId = "deleteListing")
     public ApiResponse<Void> delete(Authentication auth, @PathVariable UUID id) {
         UUID sellerId = AuthUtils.userId(auth);
+        ownershipService.assertListingOwner(id, sellerId);
         listingService.delete(sellerId, id);
         return ApiResponse.ok(null);
     }

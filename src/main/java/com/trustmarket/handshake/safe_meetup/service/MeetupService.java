@@ -31,7 +31,7 @@ public class MeetupService {
         boolean allowed = h.getBuyer().getId().equals(userId) || h.getSeller().getId().equals(userId);
         if (!allowed) throw new ForbiddenException("Not allowed");
 
-        if (h.getStatus() != HandshakeStatus.ACCEPTED) {
+        if (h.getStatus() != HandshakeStatus.ESCROW_HELD) {
             throw new BadRequestException("Meetup can only be scheduled after handshake ACCEPTED");
         }
 
@@ -61,5 +61,17 @@ public class MeetupService {
     public Handshake getHandshake(UUID handshakeId) {
         return handshakeRepository.findById(handshakeId)
                 .orElseThrow(() -> new NotFoundException("Handshake not found: " + handshakeId));
+    }
+
+    @Transactional
+    public void cancelMeetup(UUID handshakeId, UUID userId) {
+        Handshake h = handshakeRepository.findById(handshakeId)
+                .orElseThrow(() -> new NotFoundException("Handshake not found: " + handshakeId));
+        boolean allowed = h.getBuyer().getId().equals(userId) || h.getSeller().getId().equals(userId);
+        if (!allowed) throw new ForbiddenException("Not allowed");
+        Meetup meetup = meetupRepository.findByHandshake_Id(handshakeId)
+                .orElseThrow(() -> new NotFoundException("Meetup not scheduled for handshake: " + handshakeId));
+        meetup.setStatus(com.trustmarket.handshake.safe_meetup.entity.MeetupStatus.CANCELLED);
+        meetupRepository.save(meetup);
     }
 }

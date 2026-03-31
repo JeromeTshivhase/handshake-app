@@ -1,0 +1,27 @@
+# Default English messages for notifications and user-facing strings
+notification:
+  user:
+    created: "Welcome to Handshake"
+    created_body: "Your account has been created successfully."
+  payment:
+    initiated: "Payment started"
+    initiated_body: "Your payment for '{0}' has been initiated."
+    initiated_seller: "Buyer started payment"
+    initiated_seller_body: "A payment of {0} has been initiated for your listing '{1}'."
+    paid: "Payment successful"
+    paid_body: "Your payment for '{0}' was successful and is now held in escrow."
+    paid_seller: "Payment received in escrow"
+    paid_seller_body: "Payment for your listing '{0}' was successful and is now held in escrow."
+    failed: "Payment failed"
+    failed_body: "Your payment for '{0}' failed."
+    failed_seller: "Buyer payment failed"
+    failed_seller_body: "The payment attempt for your listing '{0}' failed."
+  transaction:
+    completed: "Transaction completed"
+    completed_body: "You completed the transaction for '{0}'."
+    completed_seller: "Sale completed"
+    completed_seller_body: "Your transaction for '{0}' has been completed."
+  password:
+    reset: "Password Reset Request"
+    reset_body: "You requested a password reset. Use the following link to reset your password: {0}\nIf you did not request this, please ignore this email."
+

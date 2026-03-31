@@ -9,8 +9,10 @@ import com.trustmarket.handshake.shared.exception.BadRequestException;
 import com.trustmarket.handshake.shared.exception.ForbiddenException;
 import com.trustmarket.handshake.shared.security.AuthUtils;
 import com.trustmarket.handshake.transaction.entity.Handshake;
+import com.trustmarket.handshake.transaction.repository.TransactionRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -24,6 +26,8 @@ public class MeetupController {
     private final MeetupService meetupService;
     private final SafeMeetupOtpService safeMeetupOtpService;
     private final OtpRedisStore otpRedisStore;
+    @Autowired
+    private TransactionRepository transactionRepository;
 
     @PostMapping("/meetup")
     public ApiResponse<MeetupResponse> createOrUpdateMeetup(
@@ -32,13 +36,39 @@ public class MeetupController {
             @Valid @RequestBody CreateMeetupRequest req
     ) {
         UUID userId = AuthUtils.userId(auth);
-        return ApiResponse.ok(MeetupResponse.from(meetupService.createOrUpdate(handshakeId, userId, req)));
+        var meetup = meetupService.createOrUpdate(handshakeId, userId, req);
+        var txnId = transactionRepository.findByHandshake_Id(handshakeId).map(t -> t.getId()).orElse(null);
+        return ApiResponse.ok(MeetupResponse.from(meetup, txnId));
     }
 
     @GetMapping("/meetup")
     public ApiResponse<MeetupResponse> getMeetup(@PathVariable UUID handshakeId, Authentication auth) {
         UUID userId = AuthUtils.userId(auth);
-        return ApiResponse.ok(MeetupResponse.from(meetupService.get(handshakeId, userId)));
+        var meetup = meetupService.get(handshakeId, userId);
+        var txnId = transactionRepository.findByHandshake_Id(handshakeId).map(t -> t.getId()).orElse(null);
+        return ApiResponse.ok(MeetupResponse.from(meetup, txnId));
+    }
+
+    @PutMapping("/meetup")
+    public ApiResponse<MeetupResponse> updateMeetup(
+            @PathVariable UUID handshakeId,
+            Authentication auth,
+            @Valid @RequestBody CreateMeetupRequest req
+    ) {
+        UUID userId = AuthUtils.userId(auth);
+        var meetup = meetupService.createOrUpdate(handshakeId, userId, req);
+        var txnId = transactionRepository.findByHandshake_Id(handshakeId).map(t -> t.getId()).orElse(null);
+        return ApiResponse.ok(MeetupResponse.from(meetup, txnId));
+    }
+
+    @DeleteMapping("/meetup")
+    public ApiResponse<Void> cancelMeetup(
+            @PathVariable UUID handshakeId,
+            Authentication auth
+    ) {
+        UUID userId = AuthUtils.userId(auth);
+        meetupService.cancelMeetup(handshakeId, userId);
+        return ApiResponse.ok(null);
     }
 
     @PostMapping("/otp/enable")

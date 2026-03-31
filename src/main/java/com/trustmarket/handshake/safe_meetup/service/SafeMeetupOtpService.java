@@ -3,6 +3,7 @@ package com.trustmarket.handshake.safe_meetup.service;
 import com.trustmarket.handshake.listing.entity.Listing;
 import com.trustmarket.handshake.listing.entity.ListingStatus;
 import com.trustmarket.handshake.listing.repository.ListingRepository;
+import com.trustmarket.handshake.notification.service.NotificationPublisher;
 import com.trustmarket.handshake.safe_meetup.dto.OtpEnableResponse;
 import com.trustmarket.handshake.safe_meetup.entity.Meetup;
 import com.trustmarket.handshake.safe_meetup.repository.MeetupRepository;
@@ -35,6 +36,7 @@ public class SafeMeetupOtpService {
     private final ListingRepository listingRepository;
     private final MeetupValidationService validationService;
     private final OtpService otpService;
+    private final NotificationPublisher notificationPublisher;
 
     @Value("${otp.expires-minutes:10}")
     private long otpExpiresMinutes;
@@ -47,8 +49,8 @@ public class SafeMeetupOtpService {
         boolean allowed = h.getBuyer().getId().equals(userId) || h.getSeller().getId().equals(userId);
         if (!allowed) throw new ForbiddenException("Not allowed");
 
-        if (h.getStatus() != HandshakeStatus.ACCEPTED) {
-            throw new BadRequestException("OTP can only be enabled after handshake ACCEPTED");
+        if (h.getStatus() != HandshakeStatus.ACCEPTED && h.getStatus() != HandshakeStatus.ESCROW_HELD) {
+            throw new BadRequestException("OTP can only be enabled after handshake ACCEPTED or ESCROW_HELD");
         }
 
         Meetup meetup = meetupRepository.findByHandshake_Id(handshakeId)
@@ -122,7 +124,7 @@ public class SafeMeetupOtpService {
             throw new ForbiddenException("Only seller can verify OTP");
         }
 
-        if (h.getStatus() != HandshakeStatus.ACCEPTED) {
+        if (h.getStatus() != HandshakeStatus.ESCROW_HELD) {
             throw new BadRequestException("Handshake must be ACCEPTED");
         }
 
@@ -170,6 +172,8 @@ public class SafeMeetupOtpService {
         h.setOtpVerifiedAt(LocalDateTime.now());
         h.setOtpFailedAttempts(0);
         h.setOtpLockedUntil(null);
+        // Set handshake status to COMPLETED
+        h.setStatus(HandshakeStatus.COMPLETED);
         handshakeRepository.save(h);
 
         // Complete transaction and mark listing sold
@@ -187,5 +191,9 @@ public class SafeMeetupOtpService {
         Listing listing = txn.getListing();
         listing.setStatus(ListingStatus.SOLD);
         listingRepository.save(listing);
+
+        // Publish notification for transaction completed
+        notificationPublisher.publishTransactionCompleted(txn);
     }
 }
+
