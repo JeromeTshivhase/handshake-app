@@ -13,11 +13,8 @@ public class CorsConfig {
         CorsConfiguration cfg = new CorsConfiguration();
 
         cfg.setAllowedOrigins(List.of(
-                "http://localhost:3000",
-                "http://localhost:4200",
-                "http://localhost:5173",
-                "http://localhost:8080",
-                "http://localhost:8081"
+                "http://localhost:8081",
+                "https://handshake-app-bd3y.onrender.com"
         ));
 
         cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
