@@ -9,14 +9,14 @@ import com.trustmarket.handshake.user.entity.User;
 import com.trustmarket.handshake.user.entity.UserRole;
 import com.trustmarket.handshake.user.repository.RefreshTokenRepository;
 import com.trustmarket.handshake.user.repository.UserRepository;
+import com.trustmarket.handshake.user.service.UserProfileService;
 import com.trustmarket.handshake.user.service.UserService;
 import io.jsonwebtoken.Claims;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -32,6 +32,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final UserService userService;
+    private final UserProfileService userProfileService;
     private final NotificationService notificationService;
 
     public AuthService(
@@ -40,6 +41,7 @@ public class AuthService {
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
             UserService userService,
+            UserProfileService userProfileService,
             @Qualifier("userNotificationService") NotificationService notificationService,
             TwoFaService twoFaService,
             PasswordResetTokenRepository passwordResetTokenRepository,
@@ -50,6 +52,7 @@ public class AuthService {
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.userService = userService;
+        this.userProfileService = userProfileService;
         this.notificationService = notificationService;
         this.twoFaService = twoFaService;
         this.passwordResetTokenRepository = passwordResetTokenRepository;
@@ -77,30 +80,15 @@ public class AuthService {
                 .firstName(req.getFirstName().trim())
                 .lastName(req.getLastName().trim())
                 .phone(req.getPhone() == null ? null : req.getPhone().trim())
-                .city(req.getCity() == null ? null : req.getCity().trim())
-                .province(req.getProvince() == null ? null : req.getProvince().trim())
                 .role(UserRole.USER)
                 .build();
         user = userRepository.save(user);
+        userProfileService.updateProfile(user.getId(), null, null, req.getCity(), req.getProvince());
         notificationService.sendUserCreated(user);
-        UUID createdUserId = user.getId();
-        if (TransactionSynchronizationManager.isSynchronizationActive()) {
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    try {
-                        userVerificationService.requestEmailOtp(createdUserId);
-                    } catch (Exception e) {
-                        org.slf4j.LoggerFactory.getLogger(AuthService.class).warn("Failed to send email OTP: {}", e.getMessage());
-                    }
-                }
-            });
-        } else {
-            try {
-                userVerificationService.requestEmailOtp(createdUserId);
-            } catch (Exception e) {
-                org.slf4j.LoggerFactory.getLogger(AuthService.class).warn("Failed to send email OTP: {}", e.getMessage());
-            }
+        try {
+            userVerificationService.requestEmailOtp(user.getId());
+        } catch (Exception e) {
+            org.slf4j.LoggerFactory.getLogger(AuthService.class).warn("Failed to send email OTP: {}", e.getMessage());
         }
         String access = newAccessToken(user);
         String refresh = issueAndStoreRefreshToken(user);
@@ -116,6 +104,7 @@ public class AuthService {
             throw new BadRequestException("Invalid email or password");
         }
         userService.recordLoginSuccess(user);
+        notificationService.sendWelcomeIfNoNotifications(user);
         String access = newAccessToken(user);
         String refresh = issueAndStoreRefreshToken(user);
         return buildAuthResponse(user, access, refresh);

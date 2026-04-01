@@ -7,16 +7,12 @@ import com.trustmarket.handshake.listing.repository.*;
 import com.trustmarket.handshake.shared.exception.BadRequestException;
 import com.trustmarket.handshake.shared.exception.ForbiddenException;
 import com.trustmarket.handshake.shared.exception.NotFoundException;
-import com.trustmarket.handshake.shared.upload.FileStorageService;
-import com.trustmarket.handshake.shared.upload.UploadedImage;
 import com.trustmarket.handshake.user.entity.User;
 import com.trustmarket.handshake.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
-
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.*;
@@ -28,7 +24,6 @@ public class ListingService {
     private final ListingImageRepository listingImageRepository;
     private final CategoryRepository categoryRepository;
     private final UserRepository userRepository;
-    private final FileStorageService fileStorageService;
 
     private static final int MAX_IMAGES = 5;
 
@@ -43,7 +38,7 @@ public class ListingService {
                     .orElseThrow(() -> new NotFoundException("Category not found: " + req.getCategoryId()));
         }
 
-        List<NormalizedImage> images = normalizeAndValidateImages(req.getImages(), req.getImageUrls());
+        List<String> imageUrls = normalizeAndValidateImages(req.getImageUrls());
 
         Listing listing = Listing.builder()
                 .title(req.getTitle().trim())
@@ -59,7 +54,14 @@ public class ListingService {
 
         listing = listingRepository.save(listing);
 
-        saveListingImages(listing, images);
+        int pos = 0;
+        for (String url : imageUrls) {
+            listingImageRepository.save(ListingImage.builder()
+                    .listing(listing)
+                    .url(url)
+                    .position(pos++)
+                    .build());
+        }
 
         return toResponse(listing);
     }
@@ -138,70 +140,18 @@ public class ListingService {
         }
         listing = listingRepository.save(listing);
 
-        if (req.getImages() != null || req.getImageUrls() != null) {
-            List<NormalizedImage> newImages = normalizeAndValidateImages(req.getImages(), req.getImageUrls());
-            List<ListingImage> existingImages = listingImageRepository.findByListing_IdOrderByPositionAsc(listingId);
-            deleteRemovedCloudinaryAssets(existingImages, newImages);
+        if (req.getImageUrls() != null) {
+            List<String> newImages = normalizeAndValidateImages(req.getImageUrls());
             listingImageRepository.deleteByListing_Id(listingId);
-            saveListingImages(listing, newImages);
-        }
-
-        return toResponse(listing);
-    }
-
-    @Transactional
-    public ListingResponse uploadImages(UUID sellerId, UUID listingId, MultipartFile[] files) {
-        Listing listing = listingRepository.findById(listingId)
-                .orElseThrow(() -> new NotFoundException("Listing not found: " + listingId));
-        assertOwnerAndEditable(sellerId, listing);
-
-        List<ListingImage> existingImages = listingImageRepository.findByListing_IdOrderByPositionAsc(listingId);
-        if (files == null || files.length == 0) {
-            throw new BadRequestException("No files provided");
-        }
-        if (existingImages.size() + files.length > MAX_IMAGES) {
-            throw new BadRequestException("No more than " + MAX_IMAGES + " images allowed");
-        }
-
-        List<UploadedImage> uploadedImages = fileStorageService.storeAllImages(files);
-        try {
-            int position = existingImages.size();
-            for (UploadedImage uploadedImage : uploadedImages) {
+            int pos = 0;
+            for (String url : newImages) {
                 listingImageRepository.save(ListingImage.builder()
                         .listing(listing)
-                        .url(uploadedImage.getUrl())
-                        .publicId(uploadedImage.getPublicId())
-                        .position(position++)
+                        .url(url)
+                        .position(pos++)
                         .build());
             }
-        } catch (RuntimeException ex) {
-            cleanupUploadedImages(uploadedImages);
-            throw ex;
         }
-
-        return toResponse(listing);
-    }
-
-    @Transactional
-    public ListingResponse deleteImage(UUID sellerId, UUID listingId, UUID imageId) {
-        Listing listing = listingRepository.findById(listingId)
-                .orElseThrow(() -> new NotFoundException("Listing not found: " + listingId));
-        assertOwnerAndEditable(sellerId, listing);
-
-        ListingImage image = listingImageRepository.findByIdAndListing_Id(imageId, listingId)
-                .orElseThrow(() -> new NotFoundException("Listing image not found: " + imageId));
-
-        if (image.getPublicId() != null && !image.getPublicId().isBlank()) {
-            fileStorageService.deleteByPublicId(image.getPublicId());
-        }
-        listingImageRepository.delete(image);
-
-        List<ListingImage> remainingImages = listingImageRepository.findByListing_IdOrderByPositionAsc(listingId);
-        int position = 0;
-        for (ListingImage remainingImage : remainingImages) {
-            remainingImage.setPosition(position++);
-        }
-        listingImageRepository.saveAll(remainingImages);
 
         return toResponse(listing);
     }
@@ -225,19 +175,10 @@ public class ListingService {
         User seller = listing.getSeller();
         boolean isActive = listing.getStatus() == ListingStatus.ACTIVE;
 
-        List<ListingImage> listingImages = isActive
+        List<String> images = isActive
                 ? listingImageRepository.findByListing_IdOrderByPositionAsc(listing.getId())
+                .stream().map(ListingImage::getUrl).toList()
                 : Collections.emptyList();
-
-        List<String> images = listingImages.stream().map(ListingImage::getUrl).toList();
-        List<ListingImageDto> imageDtos = listingImages.stream()
-                .map(image -> ListingImageDto.builder()
-                        .id(image.getId())
-                        .url(image.getUrl())
-                        .publicId(image.getPublicId())
-                        .position(image.getPosition())
-                        .build())
-                .toList();
 
         return ListingResponse.builder()
                 .id(listing.getId())
@@ -257,146 +198,36 @@ public class ListingService {
                 .sellerReviewCount(isActive ? seller.getRatingCount() : 0)
                 .status(listing.getStatus())
                 .location(isActive ? listing.getLocation() : null)
-                .images(imageDtos)
                 .imageUrls(images)
                 .createdAt(listing.getCreatedAt())
                 .updatedAt(listing.getUpdatedAt())
                 .build();
     }
 
-    private List<NormalizedImage> normalizeAndValidateImages(List<ListingImageInput> images, List<String> legacyImageUrls) {
-        boolean hasImageObjects = images != null && !images.isEmpty();
-        boolean hasLegacyUrls = legacyImageUrls != null && !legacyImageUrls.isEmpty();
-
-        if (hasImageObjects && hasLegacyUrls) {
-            throw new BadRequestException("Provide either images or imageUrls, not both");
-        }
-
-        List<NormalizedImage> normalizedImages = new ArrayList<>();
+    private List<String> normalizeAndValidateImages(List<String> images) {
+        if (images == null) return Collections.emptyList();
+        if (images.size() > MAX_IMAGES) throw new BadRequestException("No more than " + MAX_IMAGES + " images allowed");
         Set<String> seen = new LinkedHashSet<>();
-
-        if (hasImageObjects) {
-            if (images.size() > MAX_IMAGES) throw new BadRequestException("No more than " + MAX_IMAGES + " images allowed");
-            for (ListingImageInput image : images) {
-                if (image == null) {
-                    continue;
+        for (String url : images) {
+            String trimmed = url == null ? "" : url.trim();
+            if (!trimmed.isEmpty()) {
+                if (!(trimmed.startsWith("http://") || trimmed.startsWith("https://"))) {
+                    throw new BadRequestException("Image URLs must start with http:// or https://");
                 }
-                String normalizedUrl = normalizeAndValidateUrl(image.getUrl());
-                if (normalizedUrl.isEmpty()) {
-                    throw new BadRequestException("Each image must include a URL");
-                }
-                String publicId = image.getPublicId() == null ? "" : image.getPublicId().trim();
-                if (publicId.isEmpty()) {
-                    throw new BadRequestException("Each image must include a Cloudinary publicId");
-                }
-                String key = publicIdKey(publicId);
-                if (seen.add(key)) {
-                    normalizedImages.add(new NormalizedImage(normalizedUrl, publicId));
-                }
-            }
-            return normalizedImages;
-        }
-
-        if (!hasLegacyUrls) {
-            return normalizedImages;
-        }
-
-        if (legacyImageUrls.size() > MAX_IMAGES) throw new BadRequestException("No more than " + MAX_IMAGES + " images allowed");
-        for (String url : legacyImageUrls) {
-            String normalizedUrl = normalizeAndValidateUrl(url);
-            if (!normalizedUrl.isEmpty()) {
-                String key = urlKey(normalizedUrl);
-                if (seen.add(key)) {
-                    normalizedImages.add(new NormalizedImage(normalizedUrl, null));
-                }
-            }
-        }
-        return normalizedImages;
-    }
-
-    private void saveListingImages(Listing listing, List<NormalizedImage> images) {
-        int pos = 0;
-        for (NormalizedImage image : images) {
-            listingImageRepository.save(ListingImage.builder()
-                    .listing(listing)
-                    .url(image.url())
-                    .publicId(image.publicId())
-                    .position(pos++)
-                    .build());
-        }
-    }
-
-    private void deleteRemovedCloudinaryAssets(List<ListingImage> existingImages, List<NormalizedImage> newImages) {
-        Set<String> retainedKeys = new HashSet<>();
-        for (NormalizedImage newImage : newImages) {
-            retainedKeys.add(imageKey(newImage.url(), newImage.publicId()));
-        }
-
-        for (ListingImage existingImage : existingImages) {
-            String existingKey = imageKey(existingImage.getUrl(), existingImage.getPublicId());
-            if (!retainedKeys.contains(existingKey)
-                    && existingImage.getPublicId() != null
-                    && !existingImage.getPublicId().isBlank()) {
-                fileStorageService.deleteByPublicId(existingImage.getPublicId());
-            }
-        }
-    }
-
-    private void cleanupUploadedImages(List<UploadedImage> uploadedImages) {
-        for (UploadedImage uploadedImage : uploadedImages) {
-            if (uploadedImage.getPublicId() != null && !uploadedImage.getPublicId().isBlank()) {
                 try {
-                    fileStorageService.deleteByPublicId(uploadedImage.getPublicId());
-                } catch (RuntimeException ignored) {
-                    // Best effort cleanup for partially-persisted uploads.
+                    new URL(trimmed);
+                } catch (MalformedURLException e) {
+                    throw new BadRequestException("Invalid image URL: " + trimmed);
                 }
+                seen.add(trimmed);
             }
         }
-    }
-
-    private void assertOwnerAndEditable(UUID sellerId, Listing listing) {
-        if (!listing.getSeller().getId().equals(sellerId)) {
-            throw new ForbiddenException("You can only edit your own listing");
-        }
-        if (listing.getStatus() == ListingStatus.SOLD) {
-            throw new BadRequestException("Cannot edit a SOLD listing");
-        }
-    }
-
-    private String normalizeAndValidateUrl(String url) {
-        String trimmed = url == null ? "" : url.trim();
-        if (trimmed.isEmpty()) {
-            return "";
-        }
-        if (!(trimmed.startsWith("http://") || trimmed.startsWith("https://"))) {
-            throw new BadRequestException("Image URLs must start with http:// or https://");
-        }
-        try {
-            new URL(trimmed);
-        } catch (MalformedURLException e) {
-            throw new BadRequestException("Invalid image URL: " + trimmed);
-        }
-        return trimmed;
-    }
-
-    private String imageKey(String url, String publicId) {
-        return publicId != null && !publicId.isBlank() ? publicIdKey(publicId) : urlKey(url);
-    }
-
-    private String publicIdKey(String publicId) {
-        return "publicId:" + publicId;
-    }
-
-    private String urlKey(String url) {
-        return "url:" + url;
+        return new ArrayList<>(seen);
     }
 
     private String blankToNull(String s) {
         if (s == null) return null;
         String t = s.trim();
         return t.isEmpty() ? null : t;
-    }
-
-    private record NormalizedImage(String url, String publicId) {
     }
 }

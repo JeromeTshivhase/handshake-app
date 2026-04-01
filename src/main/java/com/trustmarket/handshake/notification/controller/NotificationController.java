@@ -34,6 +34,15 @@ public class NotificationController {
         return ApiResponse.ok(notificationService.getMyNotifications(userId, page, pageSize));
     }
 
+    @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "Get my notifications (compat)", operationId = "getMyNotificationsCompat")
+    public ApiResponse<Page<NotificationResponse>> myNotificationsCompat(Authentication auth,
+                                                                         @RequestParam(defaultValue = "0") int page,
+                                                                         @RequestParam(defaultValue = "20") int pageSize) {
+        UUID userId = AuthUtils.userId(auth);
+        return ApiResponse.ok(notificationService.getMyNotifications(userId, page, pageSize));
+    }
+
     @PostMapping(value = "/{id}/read", produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Mark notification as read", operationId = "markNotificationRead")
     public ApiResponse<NotificationResponse> markRead(Authentication auth, @PathVariable UUID id) {

@@ -22,7 +22,8 @@ public class CorsConfig {
         cfg.setAllowedOrigins(allowedOrigins);
 
         cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        cfg.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"));
+        // Use wildcard headers so Swagger/custom proxy headers don't break preflight.
+        cfg.setAllowedHeaders(List.of("*"));
         cfg.setExposedHeaders(List.of("Authorization"));
         cfg.setAllowCredentials(true);
         // Cache successful preflight responses longer to reduce repeated OPTIONS calls.

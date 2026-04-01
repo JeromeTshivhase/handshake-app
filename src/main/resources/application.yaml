@@ -89,10 +89,12 @@ payfast:
 # App-specific configs
 # =========================
 app:
-  domain: ${APP_DOMAIN:https://handshake-app-production-3b09.up.railway.app}
+  domain: ${APP_DOMAIN:http://localhost:8080}
+  redis:
+    enabled: ${REDIS_ENABLED:true}
   upload:
     dir: ./uploads
-    base-url: ${APP_DOMAIN}/uploads
+    base-url: ${APP_UPLOAD_BASE_URL:${APP_DOMAIN:http://localhost:8080}/uploads}
   http-cache:
     public-max-age-seconds: ${APP_HTTP_CACHE_PUBLIC_MAX_AGE_SECONDS:60}
 

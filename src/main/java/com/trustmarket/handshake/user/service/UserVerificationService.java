@@ -12,7 +12,6 @@ import com.trustmarket.handshake.user.repository.VerificationOtpChallengeReposit
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -44,7 +43,6 @@ public class UserVerificationService {
         return toStatusResponse(user);
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public VerificationDispatchResponse requestEmailOtp(UUID userId) {
         User user = userService.getById(userId);
         if (user.isEmailVerified()) {

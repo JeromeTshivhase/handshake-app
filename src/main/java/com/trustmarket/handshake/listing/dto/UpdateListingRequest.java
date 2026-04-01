@@ -2,7 +2,6 @@ package com.trustmarket.handshake.listing.dto;
 
 import com.trustmarket.handshake.listing.entity.ListingCondition;
 import com.trustmarket.handshake.listing.entity.ListingStatus;
-import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
 import lombok.*;
 
@@ -31,8 +30,6 @@ public class UpdateListingRequest {
     private String location;
 
     private ListingStatus status; // allow seller to set INACTIVE etc.
-
-    private List<@Valid ListingImageInput> images; // preferred Cloudinary asset replacement
 
     private List<@Size(max = 2000) String> imageUrls; // optional replacement
 }

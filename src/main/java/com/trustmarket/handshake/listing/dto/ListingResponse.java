@@ -1,5 +1,6 @@
 package com.trustmarket.handshake.listing.dto;
 
+import com.trustmarket.handshake.listing.entity.Listing;
 import com.trustmarket.handshake.listing.entity.ListingCondition;
 import com.trustmarket.handshake.listing.entity.ListingStatus;
 import lombok.*;
@@ -37,10 +38,33 @@ public class ListingResponse {
     private ListingStatus status;
     private String location;
 
-    private List<ListingImageDto> images;
-
     private List<String> imageUrls;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    public static ListingResponse fromEntity(Listing l, String categoryName, List<String> images, String sellerAvatar, boolean sellerVerified, int sellerTrustScore, double sellerRating, long sellerReviewCount) {
+        return ListingResponse.builder()
+                .id(l.getId())
+                .title(l.getTitle())
+                .description(l.getDescription())
+                .price(l.getPrice())
+                .currency(l.getCurrency().name())
+                .condition(l.getCondition())
+                .categoryId(l.getCategory() == null ? null : l.getCategory().getId())
+                .categoryName(categoryName)
+                .sellerId(l.getSeller().getId())
+                .sellerName(l.getSeller().fullName())
+                .sellerAvatar(sellerAvatar)
+                .sellerVerified(sellerVerified)
+                .sellerTrustScore(sellerTrustScore)
+                .sellerRating(sellerRating)
+                .sellerReviewCount(sellerReviewCount)
+                .status(l.getStatus())
+                .location(l.getLocation())
+                .imageUrls(images == null ? List.of() : images)
+                .createdAt(l.getCreatedAt())
+                .updatedAt(l.getUpdatedAt())
+                .build();
+    }
 }

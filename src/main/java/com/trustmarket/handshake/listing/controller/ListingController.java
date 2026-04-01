@@ -12,8 +12,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.multipart.MultipartFile;
-
 import java.math.BigDecimal;
 import java.util.UUID;
 
@@ -100,26 +98,10 @@ public class ListingController {
 
     @PatchMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Update listing", operationId = "updateListing")
-    public ApiResponse<ListingResponse> update(Authentication auth, @PathVariable UUID id, @Valid @RequestBody UpdateListingRequest req) {
+    public ApiResponse<ListingResponse> update(Authentication auth, @PathVariable UUID id, @RequestBody UpdateListingRequest req) {
         UUID sellerId = AuthUtils.userId(auth);
         ownershipService.assertListingOwner(id, sellerId);
         return ApiResponse.ok(listingService.update(sellerId, id, req));
-    }
-
-    @PostMapping(value = "/{id}/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    @Operation(summary = "Upload listing images", operationId = "uploadListingImages")
-    public ApiResponse<ListingResponse> uploadImages(Authentication auth, @PathVariable UUID id, @RequestPart("files") MultipartFile[] files) {
-        UUID sellerId = AuthUtils.userId(auth);
-        ownershipService.assertListingOwner(id, sellerId);
-        return ApiResponse.ok(listingService.uploadImages(sellerId, id, files));
-    }
-
-    @DeleteMapping(value = "/{listingId}/images/{imageId}", produces = MediaType.APPLICATION_JSON_VALUE)
-    @Operation(summary = "Delete listing image", operationId = "deleteListingImage")
-    public ApiResponse<ListingResponse> deleteImage(Authentication auth, @PathVariable UUID listingId, @PathVariable UUID imageId) {
-        UUID sellerId = AuthUtils.userId(auth);
-        ownershipService.assertListingOwner(listingId, sellerId);
-        return ApiResponse.ok(listingService.deleteImage(sellerId, listingId, imageId));
     }
 
     @DeleteMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
