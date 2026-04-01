@@ -1,8 +1,6 @@
-jwt:
-  secret: ${JWT_SECRET:changemechangemechangemechangeme12}
-  access-expiration-seconds: ${JWT_ACCESS_EXPIRATION_SECONDS:3600}
-  refresh-expiration-seconds: ${JWT_REFRESH_EXPIRATION_SECONDS:1209600}
-
+# =========================
+# Server & JWT
+# =========================
 server:
   port: ${PORT:8080}
   address: 0.0.0.0
@@ -19,17 +17,20 @@ server:
     keep-alive-timeout: ${SERVER_TOMCAT_KEEP_ALIVE_TIMEOUT:30000}
     connection-timeout: ${SERVER_TOMCAT_CONNECTION_TIMEOUT:5000}
 
+jwt:
+  secret: ${JWT_SECRET:changemechangemechangemechangeme12}
+  access-expiration-seconds: ${JWT_ACCESS_EXPIRATION_SECONDS:3600}
+  refresh-expiration-seconds: ${JWT_REFRESH_EXPIRATION_SECONDS:1209600}
+
+# =========================
+# Spring configuration (merged)
+# =========================
 spring:
-  servlet:
-    multipart:
-      enabled: true
-      max-file-size: 10MB
-      max-request-size: 50MB
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/handshake}
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:postgres}
-    driver-class-name: org.postgresql.Driver # Not sensitive
+    driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: ${DB_POOL_MAX_SIZE:20}
       minimum-idle: ${DB_POOL_MIN_IDLE:5}
@@ -45,6 +46,11 @@ spring:
         format_sql: ${HIBERNATE_FORMAT_SQL:false}
   flyway:
     enabled: true
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 10MB
+      max-request-size: 50MB
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
     port: ${MAIL_PORT:587}
@@ -60,7 +66,16 @@ spring:
           connectiontimeout: 5000
           timeout: 5000
           writetimeout: 5000
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD}
+      timeout: ${REDIS_TIMEOUT_MS:2000}
 
+# =========================
+# PayFast
+# =========================
 payfast:
   merchant-id: ${PAYFAST_MERCHANT_ID:10037006}
   merchant-key: ${PAYFAST_MERCHANT_KEY:dyun7jo0pqesu}
@@ -70,13 +85,30 @@ payfast:
   cancel-url: ${PAYFAST_CANCEL_URL:https://overintense-unrelatedly-lilly.ngrok-free.dev/payment/cancel}
   notify-url: ${PAYFAST_NOTIFY_URL:https://overintense-unrelatedly-lilly.ngrok-free.dev/api/payments/payfast/notify}
 
-data:
-  redis:
-    host: ${REDIS_HOST:localhost}
-    port: ${REDIS_PORT:6379}
-    password: ${REDIS_PASSWORD}
-    timeout: ${REDIS_TIMEOUT_MS:2000}
+# =========================
+# App-specific configs
+# =========================
+app:
+  domain: ${APP_DOMAIN:https://handshake-app-production-3b09.up.railway.app}
+  upload:
+    dir: ./uploads
+    base-url: ${APP_DOMAIN}/uploads
+  http-cache:
+    public-max-age-seconds: ${APP_HTTP_CACHE_PUBLIC_MAX_AGE_SECONDS:60}
 
+# =========================
+# Cloudinary
+# =========================
+cloudinary:
+  url: ${CLOUDINARY_URL:}
+  cloud-name: ${CLOUDINARY_CLOUD_NAME:}
+  api-key: ${CLOUDINARY_API_KEY:}
+  api-secret: ${CLOUDINARY_API_SECRET:}
+  folder: ${CLOUDINARY_FOLDER:handshake-app/uploads}
+
+# =========================
+# Verification & OTP
+# =========================
 verification:
   email:
     enabled: true
@@ -88,26 +120,9 @@ verification:
     max-failed-attempts: 5
     lock-minutes: 15
 
-# upload:
-#   dir: ./uploads
-#   base-url: http://localhost:8080/uploads
-
-app:
-  domain: ${APP_DOMAIN:https://handshake-app-production-3b09.up.railway.app}
-  upload:
-    dir: ./uploads
-    base-url: http://localhost:8080/uploads
-  http-cache:
-    public-max-age-seconds: ${APP_HTTP_CACHE_PUBLIC_MAX_AGE_SECONDS:60}
-
-cloudinary:
-  url: ${CLOUDINARY_URL:}
-  cloud-name: ${CLOUDINARY_CLOUD_NAME:}
-  api-key: ${CLOUDINARY_API_KEY:}
-  api-secret: ${CLOUDINARY_API_SECRET:}
-  folder: ${CLOUDINARY_FOLDER:handshake-app/uploads}
-
+# =========================
+# CORS
+# =========================
 cors:
   max-age-seconds: ${CORS_MAX_AGE_SECONDS:86400}
   allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:8081,https://handshake-app-bd3y.onrender.com,https://trustmarket-app-1.onrender.com,https://handshake-app-production-3b09.up.railway.app}
-
