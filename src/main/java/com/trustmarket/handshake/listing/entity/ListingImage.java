@@ -29,6 +29,9 @@ public class ListingImage {
     @Column(nullable = false, length = 2000)
     private String url;
 
+    @Column(name = "public_id", length = 255)
+    private String publicId;
+
     @Column(nullable = false)
     @Builder.Default
     private Integer position = 0;

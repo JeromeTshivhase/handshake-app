@@ -4,8 +4,20 @@ jwt:
   refresh-expiration-seconds: ${JWT_REFRESH_EXPIRATION_SECONDS:1209600}
 
 server:
-  port: 8080
+  port: ${PORT:8080}
   address: 0.0.0.0
+  compression:
+    enabled: true
+    min-response-size: 1024
+    mime-types: application/json,application/xml,text/html,text/xml,text/plain,text/css,text/javascript,application/javascript
+  http2:
+    enabled: true
+  tomcat:
+    threads:
+      max: ${SERVER_TOMCAT_MAX_THREADS:200}
+    max-connections: ${SERVER_TOMCAT_MAX_CONNECTIONS:8192}
+    keep-alive-timeout: ${SERVER_TOMCAT_KEEP_ALIVE_TIMEOUT:30000}
+    connection-timeout: ${SERVER_TOMCAT_CONNECTION_TIMEOUT:5000}
 
 spring:
   servlet:
@@ -18,13 +30,19 @@ spring:
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver # Not sensitive
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:20}
+      minimum-idle: ${DB_POOL_MIN_IDLE:5}
+      connection-timeout: ${DB_POOL_CONNECTION_TIMEOUT_MS:30000}
+      idle-timeout: ${DB_POOL_IDLE_TIMEOUT_MS:600000}
+      max-lifetime: ${DB_POOL_MAX_LIFETIME_MS:1800000}
   jpa:
     hibernate:
       ddl-auto: validate
     open-in-view: false
     properties:
       hibernate:
-        format_sql: true
+        format_sql: ${HIBERNATE_FORMAT_SQL:false}
   flyway:
     enabled: true
   mail:
@@ -71,3 +89,16 @@ app:
   upload:
     dir: ./uploads
     base-url: http://localhost:8080/uploads
+  http-cache:
+    public-max-age-seconds: ${APP_HTTP_CACHE_PUBLIC_MAX_AGE_SECONDS:60}
+
+cloudinary:
+  url: ${CLOUDINARY_URL:}
+  cloud-name: ${CLOUDINARY_CLOUD_NAME:}
+  api-key: ${CLOUDINARY_API_KEY:}
+  api-secret: ${CLOUDINARY_API_SECRET:}
+  folder: ${CLOUDINARY_FOLDER:handshake-app/uploads}
+
+cors:
+  max-age-seconds: ${CORS_MAX_AGE_SECONDS:86400}
+

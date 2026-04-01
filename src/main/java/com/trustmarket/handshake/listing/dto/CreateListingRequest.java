@@ -1,6 +1,7 @@
 package com.trustmarket.handshake.listing.dto;
 
 import com.trustmarket.handshake.listing.entity.ListingCondition;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.*;
 
@@ -32,6 +33,8 @@ public class CreateListingRequest {
 
     @Size(max = 255)
     private String location;
+
+    private List<@Valid ListingImageInput> images;
 
     private List<@Size(max = 2000) String> imageUrls;
 }
