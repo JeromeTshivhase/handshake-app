@@ -4,6 +4,7 @@
 server:
   port: ${PORT:8080}
   address: 0.0.0.0
+  forward-headers-strategy: framework
   compression:
     enabled: true
     min-response-size: 1024
@@ -81,20 +82,21 @@ payfast:
   merchant-key: ${PAYFAST_MERCHANT_KEY:dyun7jo0pqesu}
   passphrase: ${PAYFAST_PASSPHRASE:sslsllyghjwuwi8786gw}
   mode: ${PAYFAST_MODE:sandbox}
-  return-url: ${PAYFAST_RETURN_URL:https://overintense-unrelatedly-lilly.ngrok-free.dev/payment/success}
-  cancel-url: ${PAYFAST_CANCEL_URL:https://overintense-unrelatedly-lilly.ngrok-free.dev/payment/cancel}
-  notify-url: ${PAYFAST_NOTIFY_URL:https://overintense-unrelatedly-lilly.ngrok-free.dev/api/payments/payfast/notify}
+  return-url: ${PAYFAST_RETURN_URL:${APP_DOMAIN:http://localhost:8080}/payment/success}
+  cancel-url: ${PAYFAST_CANCEL_URL:${APP_DOMAIN:http://localhost:8080}/payment/cancel}
+  notify-url: ${PAYFAST_NOTIFY_URL:${APP_DOMAIN:http://localhost:8080}/api/payments/payfast/notify}
 
 # =========================
 # App-specific configs
 # =========================
 app:
-  domain: ${APP_DOMAIN:http://localhost:8080}
+  domain: ${APP_DOMAIN:}
+  enforce-domain-in-prod: ${APP_ENFORCE_DOMAIN_IN_PROD:true}
   redis:
     enabled: ${REDIS_ENABLED:true}
   upload:
     dir: ./uploads
-    base-url: ${APP_UPLOAD_BASE_URL:${APP_DOMAIN:http://localhost:8080}/uploads}
+    base-url: ${APP_UPLOAD_BASE_URL:${APP_DOMAIN:}/uploads}
   http-cache:
     public-max-age-seconds: ${APP_HTTP_CACHE_PUBLIC_MAX_AGE_SECONDS:60}
 

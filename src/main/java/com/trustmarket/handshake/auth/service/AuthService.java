@@ -104,7 +104,6 @@ public class AuthService {
             throw new BadRequestException("Invalid email or password");
         }
         userService.recordLoginSuccess(user);
-        notificationService.sendWelcomeIfNoNotifications(user);
         String access = newAccessToken(user);
         String refresh = issueAndStoreRefreshToken(user);
         return buildAuthResponse(user, access, refresh);

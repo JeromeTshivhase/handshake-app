@@ -9,7 +9,6 @@ import com.trustmarket.handshake.shared.security.JwtService;
 import com.trustmarket.handshake.user.entity.User;
 import com.trustmarket.handshake.user.repository.RefreshTokenRepository;
 import com.trustmarket.handshake.user.repository.UserRepository;
-import com.trustmarket.handshake.user.service.UserProfileService;
 import com.trustmarket.handshake.user.service.UserService;
 import com.trustmarket.handshake.user.service.UserVerificationService;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,8 +41,6 @@ class AuthServiceTest {
     @Mock
     private UserService userService;
     @Mock
-    private UserProfileService userProfileService;
-    @Mock
     private NotificationPublisher notificationPublisher;
     @Mock
     private UserVerificationService userVerificationService;
@@ -62,7 +59,6 @@ class AuthServiceTest {
                 passwordEncoder,
                 jwtService,
                 userService,
-                userProfileService,
                 notificationService,
                 twoFaService,
                 passwordResetTokenRepository,
