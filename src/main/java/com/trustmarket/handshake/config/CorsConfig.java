@@ -12,15 +12,14 @@ public class CorsConfig {
     @Value("${cors.max-age-seconds:86400}")
     private long corsMaxAgeSeconds;
 
+    @Value("${cors.allowed-origins:http://localhost:8081,https://handshake-app-bd3y.onrender.com,https://trustmarket-app-1.onrender.com,https://handshake-app-production-3b09.up.railway.app}")
+    private List<String> allowedOrigins;
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cfg = new CorsConfiguration();
 
-        cfg.setAllowedOrigins(List.of(
-                "http://localhost:8081",
-                "https://handshake-app-bd3y.onrender.com",
-                "https://trustmarket-app-1.onrender.com"
-        ));
+        cfg.setAllowedOrigins(allowedOrigins);
 
         cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         cfg.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"));
