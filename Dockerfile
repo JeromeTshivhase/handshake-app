@@ -3,7 +3,12 @@ FROM maven:3.9.6-eclipse-temurin-17 AS build
 WORKDIR /app
 COPY pom.xml .
 COPY src ./src
-RUN mvn clean package -DskipTests
+RUN mvn -B -ntp -Dmaven.wagon.http.retryHandler.count=6 -Dmaven.wagon.http.pool=false dependency:go-offline
+RUN for i in 1 2 3; do \
+	  mvn -B -ntp clean package -Dmaven.test.skip=true -Dmaven.wagon.http.retryHandler.count=6 -Dmaven.wagon.http.pool=false && break; \
+	  echo "Maven package failed (attempt $i), retrying..."; \
+	  sleep 5; \
+	done
 
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app

@@ -2,13 +2,13 @@ package com.trustmarket.handshake.auth.service;
 
 import com.trustmarket.handshake.auth.dto.RegisterRequest;
 import com.trustmarket.handshake.auth.repository.PasswordResetTokenRepository;
-import com.trustmarket.handshake.notification.service.NotificationPublisher;
 import com.trustmarket.handshake.shared.notification.NotificationService;
 import org.springframework.beans.factory.annotation.Qualifier;
 import com.trustmarket.handshake.shared.security.JwtService;
 import com.trustmarket.handshake.user.entity.User;
 import com.trustmarket.handshake.user.repository.RefreshTokenRepository;
 import com.trustmarket.handshake.user.repository.UserRepository;
+import com.trustmarket.handshake.user.service.UserProfileService;
 import com.trustmarket.handshake.user.service.UserService;
 import com.trustmarket.handshake.user.service.UserVerificationService;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,9 +41,9 @@ class AuthServiceTest {
     @Mock
     private UserService userService;
     @Mock
-    private NotificationPublisher notificationPublisher;
-    @Mock
     private UserVerificationService userVerificationService;
+    @Mock
+    private UserProfileService userProfileService;
     @Mock
     @Qualifier("userNotificationService")
     private NotificationService notificationService;
@@ -59,6 +59,7 @@ class AuthServiceTest {
                 passwordEncoder,
                 jwtService,
                 userService,
+                userProfileService,
                 notificationService,
                 twoFaService,
                 passwordResetTokenRepository,

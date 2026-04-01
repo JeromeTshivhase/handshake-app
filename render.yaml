@@ -45,4 +45,20 @@ services:
         sync: false
       - key: REDIS_PORT
         sync: false
+      - key: CORS_MAX_AGE_SECONDS
+        sync: false
+      - key: APP_HTTP_CACHE_PUBLIC_MAX_AGE_SECONDS
+        sync: false
+      - key: HIBERNATE_FORMAT_SQL
+        sync: false
+      - key: DB_POOL_MAX_SIZE
+        sync: false
+      - key: DB_POOL_MIN_IDLE
+        sync: false
+      - key: DB_POOL_CONNECTION_TIMEOUT_MS
+        sync: false
+      - key: DB_POOL_IDLE_TIMEOUT_MS
+        sync: false
+      - key: DB_POOL_MAX_LIFETIME_MS
+        sync: false
 

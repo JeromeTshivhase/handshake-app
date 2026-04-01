@@ -20,6 +20,8 @@ The following environment variables must be set for production deployments:
 - `PAYFAST_RETURN_URL` - Payfast return URL
 - `PAYFAST_CANCEL_URL` - Payfast cancel URL
 - `PAYFAST_NOTIFY_URL` - Payfast notify URL
+- `APP_DOMAIN` - Public API base URL (example: https://handshake-app-production-3b09.up.railway.app)
+- `APP_ENFORCE_DOMAIN_IN_PROD` - Keep `true` to fail fast if `APP_DOMAIN` is missing in `prod` profile
 
 Set these variables in your deployment environment or in a `.env` file (if supported by your deployment tooling).
 

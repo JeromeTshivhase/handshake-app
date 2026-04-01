@@ -1,7 +1,9 @@
 package com.trustmarket.handshake.listing.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.trustmarket.handshake.listing.dto.*;
+import com.trustmarket.handshake.listing.dto.CreateListingRequest;
+import com.trustmarket.handshake.listing.dto.ListingResponse;
+import com.trustmarket.handshake.listing.dto.UpdateListingRequest;
 import com.trustmarket.handshake.listing.entity.ListingCondition;
 import com.trustmarket.handshake.listing.entity.ListingStatus;
 import com.trustmarket.handshake.listing.service.ListingService;
@@ -9,15 +11,15 @@ import com.trustmarket.handshake.shared.exception.GlobalExceptionHandler;
 import com.trustmarket.handshake.shared.security.OwnershipService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.authentication.TestingAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
-import org.springframework.test.web.servlet.MockMvc;
-import org.mockito.Mock;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -30,7 +32,6 @@ import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -40,7 +41,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ListingControllerTest {
 
     private MockMvc mockMvc;
-
     private ObjectMapper objectMapper;
 
     @Mock
@@ -63,12 +63,10 @@ class ListingControllerTest {
     }
 
     @Test
-    void createAcceptsCloudinaryImagesPayload() throws Exception {
+    void createAcceptsImageUrlsPayload() throws Exception {
         UUID sellerId = UUID.randomUUID();
         UUID listingId = UUID.randomUUID();
-        ListingResponse response = sampleResponse(listingId);
-
-        when(listingService.create(eq(sellerId), any(CreateListingRequest.class))).thenReturn(response);
+        when(listingService.create(eq(sellerId), any(CreateListingRequest.class))).thenReturn(sampleResponse(listingId));
 
         CreateListingRequest request = CreateListingRequest.builder()
                 .title("Vintage Tee")
@@ -76,10 +74,7 @@ class ListingControllerTest {
                 .price(new BigDecimal("149.99"))
                 .condition(ListingCondition.USED)
                 .location("Johannesburg")
-                .images(List.of(ListingImageInput.builder()
-                        .url("https://res.cloudinary.com/demo/image/upload/v1/listings/one.jpg")
-                        .publicId("listings/one")
-                        .build()))
+                .imageUrls(List.of("https://example.com/listings/one.jpg"))
                 .build();
 
         mockMvc.perform(post("/api/listings")
@@ -89,25 +84,22 @@ class ListingControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.id").value(listingId.toString()))
-                .andExpect(jsonPath("$.data.images[0].publicId").value("listings/one"))
-                .andExpect(jsonPath("$.data.imageUrls[0]").value("https://res.cloudinary.com/demo/image/upload/v1/listings/one.jpg"));
+                .andExpect(jsonPath("$.data.imageUrls[0]").value("https://example.com/listings/one.jpg"));
 
         verify(listingService).create(eq(sellerId), any(CreateListingRequest.class));
     }
 
     @Test
-    void updateRejectsInvalidCloudinaryImagesPayload() throws Exception {
+    void createRejectsBlankTitle() throws Exception {
         UUID sellerId = UUID.randomUUID();
-        UUID listingId = UUID.randomUUID();
 
-        UpdateListingRequest request = UpdateListingRequest.builder()
-                .images(List.of(ListingImageInput.builder()
-                        .url("https://res.cloudinary.com/demo/image/upload/v1/listings/one.jpg")
-                        .publicId(" ")
-                        .build()))
+        CreateListingRequest request = CreateListingRequest.builder()
+                .title(" ")
+                .price(new BigDecimal("149.99"))
+                .condition(ListingCondition.USED)
                 .build();
 
-        mockMvc.perform(patch("/api/listings/{id}", listingId)
+        mockMvc.perform(post("/api/listings")
                         .principal(authentication(sellerId))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsBytes(request)))
@@ -117,39 +109,42 @@ class ListingControllerTest {
     }
 
     @Test
-    void uploadImagesEndpointDelegatesToService() throws Exception {
+    void updateDelegatesToService() throws Exception {
         UUID sellerId = UUID.randomUUID();
         UUID listingId = UUID.randomUUID();
         doNothing().when(ownershipService).assertListingOwner(listingId, sellerId);
-        when(listingService.uploadImages(eq(sellerId), eq(listingId), any())).thenReturn(sampleResponse(listingId));
+        when(listingService.update(eq(sellerId), eq(listingId), any(UpdateListingRequest.class)))
+                .thenReturn(sampleResponse(listingId));
 
-        mockMvc.perform(multipart("/api/listings/{id}/images", listingId)
-                        .file("files", "file-1".getBytes())
-                        .file("files", "file-2".getBytes())
-                        .principal(authentication(sellerId)))
+        UpdateListingRequest request = UpdateListingRequest.builder()
+                .title("Updated title")
+                .imageUrls(List.of("https://example.com/listings/updated.jpg"))
+                .build();
+
+        mockMvc.perform(patch("/api/listings/{id}", listingId)
+                        .principal(authentication(sellerId))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsBytes(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.images[0].publicId").value("listings/one"));
+                .andExpect(jsonPath("$.success").value(true));
 
         verify(ownershipService).assertListingOwner(listingId, sellerId);
-        verify(listingService).uploadImages(eq(sellerId), eq(listingId), any());
+        verify(listingService).update(eq(sellerId), eq(listingId), any(UpdateListingRequest.class));
     }
 
     @Test
-    void deleteImageEndpointDelegatesToService() throws Exception {
+    void deleteDelegatesToService() throws Exception {
         UUID sellerId = UUID.randomUUID();
         UUID listingId = UUID.randomUUID();
-        UUID imageId = UUID.randomUUID();
         doNothing().when(ownershipService).assertListingOwner(listingId, sellerId);
-        when(listingService.deleteImage(sellerId, listingId, imageId)).thenReturn(sampleResponse(listingId));
 
-        mockMvc.perform(delete("/api/listings/{listingId}/images/{imageId}", listingId, imageId)
+        mockMvc.perform(delete("/api/listings/{id}", listingId)
                         .principal(authentication(sellerId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
 
         verify(ownershipService).assertListingOwner(listingId, sellerId);
-        verify(listingService).deleteImage(sellerId, listingId, imageId);
+        verify(listingService).delete(sellerId, listingId);
     }
 
     private Authentication authentication(UUID userId) {
@@ -175,13 +170,7 @@ class ListingControllerTest {
                 .sellerTrustScore(0)
                 .sellerRating(0.0)
                 .sellerReviewCount(0)
-                .images(List.of(ListingImageDto.builder()
-                        .id(UUID.randomUUID())
-                        .url("https://res.cloudinary.com/demo/image/upload/v1/listings/one.jpg")
-                        .publicId("listings/one")
-                        .position(0)
-                        .build()))
-                .imageUrls(List.of("https://res.cloudinary.com/demo/image/upload/v1/listings/one.jpg"))
+                .imageUrls(List.of("https://example.com/listings/one.jpg"))
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .build();
