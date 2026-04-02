@@ -4,6 +4,7 @@ import com.trustmarket.handshake.messaging.entity.Conversation;
 import com.trustmarket.handshake.messaging.entity.Message;
 import com.trustmarket.handshake.messaging.entity.MessageDeliveryChannel;
 import com.trustmarket.handshake.messaging.ws.dto.WsMessageEvent;
+import com.trustmarket.handshake.shared.rate.RateLimiterService;
 import com.trustmarket.handshake.user.entity.User;
 import com.trustmarket.handshake.user.entity.UserSettings;
 import com.trustmarket.handshake.user.repository.UserSettingsRepository;
@@ -16,6 +17,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.EnumSet;
 import java.util.Set;
@@ -29,12 +31,16 @@ public class MessageDeliveryService {
     private final SimpMessagingTemplate messagingTemplate;
     private final UserSettingsRepository userSettingsRepository;
     private final ObjectProvider<JavaMailSender> mailSenderProvider;
+    private final RateLimiterService rateLimiterService;
 
-    @Value("${app.messaging.email.enabled:true}")
+    @Value("${messaging.email.enabled:true}")
     private boolean emailEnabled;
 
-    @Value("${app.messaging.email.from:no-reply@handshake.local}")
+    @Value("${messaging.email.from:no-reply@handshake.local}")
     private String fromAddress;
+
+    @Value("${messaging.email.rate-limit.per-hour:10}")
+    private int emailsPerHour;
 
     @Value("${app.frontend.base-url:http://localhost:3000}")
     private String frontendBaseUrl;
@@ -59,7 +65,8 @@ public class MessageDeliveryService {
     }
 
     private void deliverInApp(Message message, UUID senderId, UUID recipientId) {
-        log.info("[{}] MessageDeliveryService.deliverInApp about to deliver message {} to sender {} and recipient {}", Instant.now(), message.getId(), senderId, recipientId);
+        log.info("[{}] MessageDeliveryService.deliverInApp delivering message {} to recipient {}",
+                Instant.now(), message.getId(), recipientId);
         WsMessageEvent event = WsMessageEvent.builder()
                 .conversationId(message.getConversation().getId())
                 .messageId(message.getId())
@@ -69,8 +76,7 @@ public class MessageDeliveryService {
                 .createdAt(message.getCreatedAt())
                 .build();
 
-        messagingTemplate.convertAndSendToUser(senderId.toString(), "/queue/messages", event);
-
+        // Only deliver to the recipient — sender already has the message from the HTTP/WS response.
         if (!senderId.equals(recipientId) && isInAppEnabled(recipientId)) {
             messagingTemplate.convertAndSendToUser(recipientId.toString(), "/queue/messages", event);
         }
@@ -78,6 +84,16 @@ public class MessageDeliveryService {
 
     private void deliverEmail(Message message, User sender, User recipient) {
         if (!emailEnabled || !isEmailEnabled(recipient.getId())) {
+            return;
+        }
+
+        var emailBucket = rateLimiterService.resolveBucket(
+                "msg-email:" + recipient.getId(),
+                emailsPerHour,
+                Duration.ofHours(1)
+        );
+        if (!emailBucket.tryConsume(1)) {
+            log.warn("Email delivery throttled for recipient {} (message {})", recipient.getId(), message.getId());
             return;
         }
 

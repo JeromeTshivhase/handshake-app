@@ -1,9 +1,10 @@
 package com.trustmarket.handshake.auth.dto;
 
+import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 @Data
 public class TwoFaEnableRequest {
-    private String method; // e.g., "app", "sms", "email"
+    @NotBlank
+    private String verificationCode;
 }
-

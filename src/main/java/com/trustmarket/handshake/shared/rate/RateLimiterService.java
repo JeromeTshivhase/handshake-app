@@ -19,8 +19,12 @@ public class RateLimiterService {
     private static final Duration DURATION = Duration.ofMinutes(1);
 
     public Bucket resolveBucket(String key) {
+        return resolveBucket(key, REQUESTS, DURATION);
+    }
+
+    public Bucket resolveBucket(String key, int capacity, Duration period) {
         return buckets.computeIfAbsent(key, k -> Bucket4j.builder()
-                .addLimit(Bandwidth.classic(REQUESTS, Refill.intervally(REQUESTS, DURATION)))
+                .addLimit(Bandwidth.classic(capacity, Refill.intervally(capacity, period)))
                 .build());
     }
 }

@@ -1,20 +1,28 @@
 package com.trustmarket.handshake.safe_meetup.controller;
 
-import com.trustmarket.handshake.safe_meetup.dto.*;
+import com.trustmarket.handshake.safe_meetup.dto.CheckinRequest;
+import com.trustmarket.handshake.safe_meetup.dto.CreateMeetupRequest;
+import com.trustmarket.handshake.safe_meetup.dto.GeoPointRequest;
+import com.trustmarket.handshake.safe_meetup.dto.MeetupResponse;
+import com.trustmarket.handshake.safe_meetup.dto.OtpEnableResponse;
+import com.trustmarket.handshake.safe_meetup.dto.OtpRevealResponse;
+import com.trustmarket.handshake.safe_meetup.dto.OtpVerifyRequest;
 import com.trustmarket.handshake.safe_meetup.service.MeetupService;
-import com.trustmarket.handshake.safe_meetup.service.OtpRedisStore;
 import com.trustmarket.handshake.safe_meetup.service.SafeMeetupOtpService;
 import com.trustmarket.handshake.shared.api.ApiResponse;
-import com.trustmarket.handshake.shared.exception.BadRequestException;
-import com.trustmarket.handshake.shared.exception.ForbiddenException;
 import com.trustmarket.handshake.shared.security.AuthUtils;
-import com.trustmarket.handshake.transaction.entity.Handshake;
 import com.trustmarket.handshake.transaction.repository.TransactionRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
 
@@ -25,9 +33,7 @@ public class MeetupController {
 
     private final MeetupService meetupService;
     private final SafeMeetupOtpService safeMeetupOtpService;
-    private final OtpRedisStore otpRedisStore;
-    @Autowired
-    private TransactionRepository transactionRepository;
+    private final TransactionRepository transactionRepository;
 
     @PostMapping("/meetup")
     public ApiResponse<MeetupResponse> createOrUpdateMeetup(
@@ -62,46 +68,54 @@ public class MeetupController {
     }
 
     @DeleteMapping("/meetup")
-    public ApiResponse<Void> cancelMeetup(
-            @PathVariable UUID handshakeId,
-            Authentication auth
-    ) {
+    public ApiResponse<Void> cancelMeetup(@PathVariable UUID handshakeId, Authentication auth) {
         UUID userId = AuthUtils.userId(auth);
         meetupService.cancelMeetup(handshakeId, userId);
         return ApiResponse.ok(null);
     }
 
     @PostMapping("/otp/enable")
-    public ApiResponse<OtpEnableResponse> enableOtp(@PathVariable UUID handshakeId, Authentication auth, @Valid @RequestBody GeoPointRequest req) {
+    public ApiResponse<OtpEnableResponse> enableOtp(
+            @PathVariable UUID handshakeId,
+            Authentication auth,
+            @Valid @RequestBody GeoPointRequest req
+    ) {
         UUID userId = AuthUtils.userId(auth);
         return ApiResponse.ok(safeMeetupOtpService.enableIfEligible(handshakeId, userId, req.getLat(), req.getLng()));
     }
 
-    /**
-     * Buyer reveals OTP only when enabled.
-     * OTP is fetched from Redis (plaintext) to allow reveal.
-     */
     @GetMapping("/otp")
     public ApiResponse<OtpRevealResponse> revealOtp(@PathVariable UUID handshakeId, Authentication auth) {
         UUID userId = AuthUtils.userId(auth);
-        // Only allow the buyer to see the OTP
-        Handshake handshake = meetupService.getHandshake(handshakeId);
-        if (!handshake.getBuyer().getId().equals(userId)) {
-            throw new ForbiddenException("Only the buyer can view the OTP");
-        }
-        String otp = otpRedisStore.get(handshakeId)
-                .orElseThrow(() -> new BadRequestException("OTP not available (may have expired). Ask to re-accept handshake or contact support."));
+        String otp = safeMeetupOtpService.revealOtpToBuyer(handshakeId, userId, null);
+        var handshake = meetupService.getHandshake(handshakeId);
         return ApiResponse.ok(OtpRevealResponse.builder()
                 .enabled(true)
                 .otp(otp)
                 .expiresAt(handshake.getOtpExpiresAt())
+                .warning("Show this code to the seller to complete the transaction")
                 .build());
     }
 
     @PostMapping("/otp/verify")
-    public ApiResponse<Void> verifyOtp(@PathVariable UUID handshakeId, Authentication auth, @Valid @RequestBody OtpVerifyRequest req) {
+    public ApiResponse<Void> verifyOtp(
+            @PathVariable UUID handshakeId,
+            Authentication auth,
+            @Valid @RequestBody OtpVerifyRequest req
+    ) {
         UUID sellerId = AuthUtils.userId(auth);
         safeMeetupOtpService.verifyOtpBySeller(handshakeId, sellerId, req.getOtp(), req.getLat(), req.getLng());
+        return ApiResponse.ok(null);
+    }
+
+    @PostMapping("/checkin")
+    public ApiResponse<Void> checkin(
+            @PathVariable UUID handshakeId,
+            Authentication auth,
+            @Valid @RequestBody CheckinRequest req
+    ) {
+        UUID userId = AuthUtils.userId(auth);
+        safeMeetupOtpService.checkin(handshakeId, userId, req);
         return ApiResponse.ok(null);
     }
 }

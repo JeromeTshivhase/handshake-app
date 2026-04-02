@@ -3,6 +3,7 @@ package com.trustmarket.handshake.transaction.controller;
 import com.trustmarket.handshake.transaction.service.TransactionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -10,11 +11,15 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/admin/transactions")
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('ADMIN')")
 public class AdminTransactionController {
     private final TransactionService transactionService;
 
     @PostMapping("/{transactionId}/dispute")
-    public ResponseEntity<?> markDisputed(@PathVariable UUID transactionId, @RequestParam(required = false) String reason) {
+    public ResponseEntity<?> markDisputed(
+            @PathVariable UUID transactionId,
+            @RequestParam(required = false) String reason
+    ) {
         transactionService.markDisputed(transactionId, reason);
         return ResponseEntity.ok().build();
     }
@@ -25,4 +30,3 @@ public class AdminTransactionController {
         return ResponseEntity.ok().build();
     }
 }
-

@@ -7,7 +7,6 @@ import com.trustmarket.handshake.shared.api.ApiResponse;
 import com.trustmarket.handshake.shared.security.AuthUtils;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -31,14 +30,4 @@ public class ConversationController {
         return ApiResponse.ok(conversationService.startFromListing(listingId, buyerId, req));
     }
 
-    // list my conversations
-    @GetMapping("/me")
-    public ApiResponse<Page<ConversationResponse>> myConversations(
-            Authentication auth,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "30") int pageSize) {
-
-        UUID userId = AuthUtils.userId(auth);
-        return ApiResponse.ok(conversationService.myConversations(userId, page, pageSize));
-    }
 }

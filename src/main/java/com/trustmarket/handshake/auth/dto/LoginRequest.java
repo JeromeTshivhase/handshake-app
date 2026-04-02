@@ -16,4 +16,10 @@ public class LoginRequest {
 
     @NotBlank
     private String password;
+
+    // Optional, required by server when account has 2FA enabled.
+    private String twoFactorCode;
+
+    // Optional one-time backup code alternative to TOTP.
+    private String recoveryCode;
 }

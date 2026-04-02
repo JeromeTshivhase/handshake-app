@@ -11,7 +11,8 @@ import java.util.UUID;
 @Entity
 @Table(name = "message", indexes = {
         @Index(name = "idx_msg_convo", columnList = "conversation_id"),
-        @Index(name = "idx_msg_created_at", columnList = "created_at")
+        @Index(name = "idx_msg_created_at", columnList = "created_at"),
+        @Index(name = "idx_msg_convo_visible", columnList = "conversation_id") // partial handled in queries
 })
 @Getter
 @Setter
@@ -44,7 +45,18 @@ public class Message {
     @Builder.Default
     private boolean read = false;
 
+    /** Soft-delete: set when a participant deletes the message. */
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
+    @Column(name = "deleted_by")
+    private UUID deletedBy;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    public boolean isDeleted() {
+        return deletedAt != null;
+    }
 }

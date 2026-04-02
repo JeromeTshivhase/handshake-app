@@ -13,7 +13,14 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface MessageRepository extends JpaRepository<Message, UUID> {
-    Page<Message> findByConversation_IdOrderByCreatedAtAsc(UUID conversationId, Pageable pageable);
+
+    @Query("""
+        SELECT m FROM Message m
+        WHERE m.conversation.id = :conversationId
+          AND m.deletedAt IS NULL
+        ORDER BY m.createdAt ASC
+        """)
+    Page<Message> findVisibleByConversationId(@Param("conversationId") UUID conversationId, Pageable pageable);
 
     @EntityGraph(attributePaths = {
             "conversation",
@@ -24,6 +31,18 @@ public interface MessageRepository extends JpaRepository<Message, UUID> {
     })
     Optional<Message> findDetailedById(UUID id);
 
+    /**
+     * Count unread messages efficiently — replaces the N+1 load-all-then-filter pattern.
+     */
+    @Query("""
+        SELECT COUNT(m) FROM Message m
+        WHERE m.conversation.id = :conversationId
+          AND m.read = false
+          AND m.sender.id <> :userId
+          AND m.deletedAt IS NULL
+        """)
+    long countUnread(@Param("conversationId") UUID conversationId, @Param("userId") UUID userId);
+
     @Modifying
     @Transactional
     @Query("""
@@ -31,16 +50,23 @@ public interface MessageRepository extends JpaRepository<Message, UUID> {
         WHERE m.conversation.id = :conversationId
           AND m.sender.id <> :userId
           AND m.read = false
-    """)
-    int markAllAsReadByConversationAndUser(@Param("conversationId") UUID conversationId, @Param("userId") UUID userId);
+          AND m.deletedAt IS NULL
+        """)
+    int markAllAsReadByConversationAndUser(
+            @Param("conversationId") UUID conversationId,
+            @Param("userId") UUID userId);
 
     @Modifying
     @Transactional
     @Query("""
         UPDATE Message m SET m.read = true
         WHERE m.id = :messageId
+          AND m.conversation.id = :conversationId
           AND m.sender.id <> :userId
           AND m.read = false
-    """)
-    int markAsReadByIdAndUser(@Param("messageId") UUID messageId, @Param("userId") UUID userId);
+        """)
+    int markAsReadByIdAndUser(
+            @Param("conversationId") UUID conversationId,
+            @Param("messageId") UUID messageId,
+            @Param("userId") UUID userId);
 }

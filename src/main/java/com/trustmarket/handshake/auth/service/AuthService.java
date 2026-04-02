@@ -103,6 +103,24 @@ public class AuthService {
             userService.recordLoginFailure(user);
             throw new BadRequestException("Invalid email or password");
         }
+
+        if (user.isTwoFaEnabled()) {
+            boolean verified;
+            if (req.getRecoveryCode() != null && !req.getRecoveryCode().isBlank()) {
+                verified = twoFaService.verifyRecoveryCode(user.getId(), req.getRecoveryCode().trim());
+            } else {
+                if (req.getTwoFactorCode() == null || req.getTwoFactorCode().isBlank()) {
+                    throw new BadRequestException("2FA code is required for this account");
+                }
+                verified = twoFaService.verifyDuringLogin(user.getId(), req.getTwoFactorCode());
+            }
+
+            if (!verified) {
+                userService.recordLoginFailure(user);
+                throw new BadRequestException("Invalid 2FA code");
+            }
+        }
+
         userService.recordLoginSuccess(user);
         String access = newAccessToken(user);
         String refresh = issueAndStoreRefreshToken(user);
@@ -203,10 +221,27 @@ public class AuthService {
     }
 
     // 2FA orchestration
-    public void enable2fa(UUID userId, com.trustmarket.handshake.auth.dto.TwoFaEnableRequest req) { twoFaService.enable(userId, req.getMethod()); }
-    public void disable2fa(UUID userId) { twoFaService.disable(userId); }
+    public com.trustmarket.handshake.auth.dto.TwoFaSetupResponse setup2fa(UUID userId, com.trustmarket.handshake.auth.dto.TwoFaSetupRequest req) {
+        return twoFaService.initiateSetup(userId, req);
+    }
+
+    public java.util.List<String> enable2fa(UUID userId, com.trustmarket.handshake.auth.dto.TwoFaEnableRequest req) {
+        return twoFaService.enable(userId, req);
+    }
+
+    public void disable2fa(UUID userId, String password) {
+        twoFaService.disable(userId, password);
+    }
+
     public void verify2fa(UUID userId, com.trustmarket.handshake.auth.dto.TwoFaVerifyRequest req) { twoFaService.verify(userId, req.getCode()); }
-    public boolean get2faStatus(UUID userId) { return twoFaService.isEnabled(userId); }
+
+    public com.trustmarket.handshake.auth.dto.TwoFaStatusResponse get2faStatus(UUID userId) {
+        return twoFaService.getStatus(userId);
+    }
+
+    public java.util.List<String> regenerateRecoveryCodes(UUID userId, String code) {
+        return twoFaService.regenerateRecoveryCodes(userId, code);
+    }
     private com.trustmarket.handshake.auth.dto.AuthResponse buildAuthResponse(User user, String accessToken, String refreshToken) {
         return com.trustmarket.handshake.auth.dto.AuthResponse.builder()
                 .userId(user.getId())

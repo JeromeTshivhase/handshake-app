@@ -77,6 +77,14 @@ public class HandshakeController {
         return ApiResponse.ok(HandshakeResponse.from(h));
     }
 
+    @PostMapping(value = "/{id}/cancel", produces = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "Cancel handshake (buyer or seller)", operationId = "cancelHandshake")
+    public ApiResponse<HandshakeResponse> cancel(Authentication auth, @PathVariable UUID id) {
+        UUID userId = AuthUtils.userId(auth);
+        Handshake h = handshakeService.cancel(userId, id);
+        return ApiResponse.ok(HandshakeResponse.from(h));
+    }
+
     @GetMapping("/{id}")
     public ApiResponse<HandshakeResponse> get(Authentication auth, @PathVariable UUID id) {
         UUID userId = AuthUtils.userId(auth);

@@ -2,7 +2,9 @@ package com.trustmarket.handshake.transaction.repository;
 
 import com.trustmarket.handshake.transaction.entity.Handshake;
 import com.trustmarket.handshake.transaction.enums.HandshakeStatus;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -74,4 +76,8 @@ public interface HandshakeRepository extends JpaRepository<Handshake, UUID> {
     List<Handshake> findAllByStatusAndCreatedAtBeforeAndUpdatedAtBefore(HandshakeStatus status, LocalDateTime createdAt, LocalDateTime updatedAt);
 
     List<Handshake> findByListing_IdAndBuyer_IdAndStatusIn(UUID listingId, UUID buyerId, List<HandshakeStatus> statuses);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT h FROM Handshake h WHERE h.id = :id")
+    Optional<Handshake> findByIdForOtpVerification(@Param("id") UUID id);
 }

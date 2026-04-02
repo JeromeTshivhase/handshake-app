@@ -79,10 +79,17 @@ public class Conversation {
         return null;
     }
 
-    public void updateLastMessage(String content) {
+    public void updateLastMessage(String content, int previewLength) {
         if (content == null) return;
         String trimmed = content.trim();
-        this.lastMessagePreview = trimmed.length() > 100 ? trimmed.substring(0, 97) + "..." : trimmed;
+        this.lastMessagePreview = trimmed.length() > previewLength
+                ? trimmed.substring(0, previewLength - 3) + "..."
+                : trimmed;
         this.lastMessageAt = LocalDateTime.now();
+    }
+
+    /** Overload using default 100-char preview for backward compatibility. */
+    public void updateLastMessage(String content) {
+        updateLastMessage(content, 100);
     }
 }

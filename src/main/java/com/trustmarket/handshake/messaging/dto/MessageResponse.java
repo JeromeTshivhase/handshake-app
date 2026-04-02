@@ -19,16 +19,26 @@ public class MessageResponse {
     private MessageType type;
     private String content;
     private boolean read;
+    private boolean deleted;
     private LocalDateTime createdAt;
 
     public static MessageResponse fromEntity(Message m) {
+        return fromEntity(m, null);
+    }
+
+    public static MessageResponse fromEntity(Message m, UUID viewerId) {
+        boolean deleted = m.isDeleted();
         return MessageResponse.builder()
                 .id(m.getId())
                 .conversationId(m.getConversation().getId())
                 .senderId(m.getSender().getId())
                 .type(m.getType())
-                .content(m.getContent())
+                // Replace deleted content with placeholder for recipients; sender sees original.
+                .content(deleted && (viewerId == null || !viewerId.equals(m.getSender().getId()))
+                        ? "[Message deleted]"
+                        : m.getContent())
                 .read(m.isRead())
+                .deleted(deleted)
                 .createdAt(m.getCreatedAt())
                 .build();
     }

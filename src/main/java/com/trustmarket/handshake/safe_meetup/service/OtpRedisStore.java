@@ -17,6 +17,7 @@ import java.util.UUID;
 public class OtpRedisStore {
 
     private final StringRedisTemplate redis;
+    private final OtpRevealCryptoService otpRevealCryptoService;
 
     @Value("${app.redis.enabled:true}")
     private boolean redisEnabled;
@@ -30,7 +31,8 @@ public class OtpRedisStore {
             return;
         }
         try {
-            redis.opsForValue().set(key(handshakeId), otp, ttl);
+            String encryptedOtp = otpRevealCryptoService.encrypt(handshakeId, otp);
+            redis.opsForValue().set(key(handshakeId), encryptedOtp, ttl);
         } catch (DataAccessException ex) {
             // Keep handshake flow alive even when Redis is temporarily unavailable.
             log.warn("Redis unavailable while storing OTP for handshake {}: {}", handshakeId, ex.getMessage());
@@ -42,7 +44,11 @@ public class OtpRedisStore {
             return Optional.empty();
         }
         try {
-            return Optional.ofNullable(redis.opsForValue().get(key(handshakeId)));
+            String encryptedOtp = redis.opsForValue().get(key(handshakeId));
+            if (encryptedOtp == null || encryptedOtp.isBlank()) {
+                return Optional.empty();
+            }
+            return Optional.of(otpRevealCryptoService.decrypt(handshakeId, encryptedOtp));
         } catch (DataAccessException ex) {
             log.warn("Redis unavailable while reading OTP for handshake {}: {}", handshakeId, ex.getMessage());
             return Optional.empty();

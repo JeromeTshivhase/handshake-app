@@ -12,4 +12,5 @@ public class OtpRevealResponse {
     private boolean enabled;
     private String otp;           // only returned when enabled==true
     private LocalDateTime expiresAt;
+    private String warning;
 }

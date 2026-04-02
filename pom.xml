@@ -119,6 +119,12 @@
 			<artifactId>bucket4j-core</artifactId>
 			<version>7.6.0</version>
 		</dependency>
+
+		<!-- Base32 encoding for TOTP secrets (RFC 4648) -->
+		<dependency>
+			<groupId>commons-codec</groupId>
+			<artifactId>commons-codec</artifactId>
+		</dependency>
 	</dependencies>
 
 	<build>

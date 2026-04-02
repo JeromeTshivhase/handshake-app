@@ -5,7 +5,6 @@ import com.trustmarket.handshake.listing.entity.ListingStatus;
 import com.trustmarket.handshake.listing.repository.ListingRepository;
 import com.trustmarket.handshake.notification.service.NotificationPublisher;
 import com.trustmarket.handshake.safe_meetup.service.OtpRedisStore;
-import com.trustmarket.handshake.safe_meetup.service.OtpService;
 import com.trustmarket.handshake.shared.exception.BadRequestException;
 import com.trustmarket.handshake.shared.exception.ForbiddenException;
 import com.trustmarket.handshake.shared.exception.NotFoundException;
@@ -16,11 +15,9 @@ import com.trustmarket.handshake.transaction.repository.HandshakeRepository;
 import com.trustmarket.handshake.user.entity.User;
 import com.trustmarket.handshake.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -32,15 +29,8 @@ public class HandshakeService {
     private final ListingRepository listingRepository;
     private final UserRepository userRepository;
     private final TransactionService transactionService;
-    private final OtpService otpService;
     private final OtpRedisStore otpRedisStore;
     private final NotificationPublisher notificationPublisher;
-
-    @Value("${otp.expires-minutes:10}")
-    private long otpExpiresMinutes;
-
-    @Value("${otp.redis-ttl-hours:24}")
-    private long otpRedisTtlHours;
 
     @Transactional(readOnly = true)
     public org.springframework.data.domain.Page<Handshake> findByUserIdAndStatus(UUID userId, HandshakeStatus status, org.springframework.data.domain.Pageable pageable) {
@@ -125,16 +115,15 @@ public class HandshakeService {
         listing.setStatus(ListingStatus.PENDING_PAYMENT);
         listingRepository.save(listing);
 
-        String otp = otpService.generate6Digits();
-        h.setOtpCodeHash(otpService.hash(otp));
+        h.setOtpCodeHash(null);
+        h.setOtpRevealCiphertext(null);
         h.setOtpEnabled(false);
         h.setOtpVerified(false);
         h.setOtpVerifiedAt(null);
-        h.setOtpExpiresAt(LocalDateTime.now().plusMinutes(otpExpiresMinutes));
+        h.setOtpExpiresAt(null);
         h.setOtpFailedAttempts(0);
         h.setOtpLockedUntil(null);
         h = handshakeRepository.save(h);
-        otpRedisStore.put(h.getId(), otp, Duration.ofHours(otpRedisTtlHours));
         transactionService.createFromAcceptedHandshake(h);
         notificationPublisher.publishHandshakeAccepted(h);
         return h;

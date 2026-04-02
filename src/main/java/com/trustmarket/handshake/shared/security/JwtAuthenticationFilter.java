@@ -1,12 +1,14 @@
 package com.trustmarket.handshake.shared.security;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
+import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -24,8 +26,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+    protected void doFilterInternal(@NonNull HttpServletRequest request,
+                                    @NonNull HttpServletResponse response,
+                                    @NonNull FilterChain chain)
             throws ServletException, IOException {
+
+        if (SecurityContextHolder.getContext().getAuthentication() != null) {
+            chain.doFilter(request, response);
+            return;
+        }
 
         String header = request.getHeader(HttpHeaders.AUTHORIZATION);
         if (header == null || !header.startsWith("Bearer ")) {
@@ -33,30 +42,41 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        String token = header.substring(7);
-        if (!jwtService.isValid(token)) {
+        String token = header.substring(7).trim();
+        if (token.isEmpty()) {
             chain.doFilter(request, response);
             return;
         }
 
-        Claims claims = jwtService.parse(token);
-        String type = (String) claims.get("type");
-        if (!"ACCESS".equals(type)) {
-            // we only authenticate requests with ACCESS tokens
-            chain.doFilter(request, response);
-            return;
+        try {
+            Claims claims = jwtService.parse(token);
+            String type = claims.get("type", String.class);
+            if (!"ACCESS".equals(type)) {
+                // we only authenticate requests with ACCESS tokens
+                chain.doFilter(request, response);
+                return;
+            }
+
+            String userIdClaim = claims.get("userId", String.class);
+            String roleClaim = claims.get("role", String.class);
+            if (userIdClaim == null || userIdClaim.isBlank() || roleClaim == null || roleClaim.isBlank()) {
+                chain.doFilter(request, response);
+                return;
+            }
+
+            UUID userId = UUID.fromString(userIdClaim);
+            String authority = roleClaim.startsWith("ROLE_") ? roleClaim : "ROLE_" + roleClaim;
+
+            var auth = new UsernamePasswordAuthenticationToken(
+                    userId,
+                    null,
+                    List.of(new SimpleGrantedAuthority(authority))
+            );
+            SecurityContextHolder.getContext().setAuthentication(auth);
+        } catch (JwtException | IllegalArgumentException ignored) {
+            // Invalid JWT or malformed claim payload should not break request flow.
         }
 
-        UUID userId = UUID.fromString((String) claims.get("userId"));
-        String role = (String) claims.get("role");
-
-        var auth = new UsernamePasswordAuthenticationToken(
-                userId,
-                null,
-                List.of(new SimpleGrantedAuthority("ROLE_" + role))
-        );
-
-        SecurityContextHolder.getContext().setAuthentication(auth);
         chain.doFilter(request, response);
     }
 }

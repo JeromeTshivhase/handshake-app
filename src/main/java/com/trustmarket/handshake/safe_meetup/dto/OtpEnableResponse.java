@@ -2,7 +2,7 @@ package com.trustmarket.handshake.safe_meetup.dto;
 
 import lombok.*;
 
-import java.util.List;
+import java.time.LocalDateTime;
 
 @Data
 @NoArgsConstructor
@@ -10,7 +10,8 @@ import java.util.List;
 @Builder
 public class OtpEnableResponse {
     private boolean enabled;
-    private double distanceMeters;
     private boolean withinTimeWindow;
-    private List<String> reasons; // e.g. ["MEETUP_NOT_SCHEDULED","TOO_FAR"]
+    private Double distanceMeters;
+    private String reason;
+    private LocalDateTime otpExpiresAt;
 }

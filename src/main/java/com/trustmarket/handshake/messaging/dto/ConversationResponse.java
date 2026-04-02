@@ -1,6 +1,7 @@
 package com.trustmarket.handshake.messaging.dto;
 
 import com.trustmarket.handshake.messaging.entity.Conversation;
+import com.trustmarket.handshake.messaging.entity.ConversationStatus;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -25,6 +26,7 @@ public class ConversationResponse {
     private String lastMessagePreview;
     private LocalDateTime lastMessageAt;
     private long unreadCount;
+    private ConversationStatus status;
     private LocalDateTime createdAt;
 
     public static ConversationResponse fromEntity(Conversation c) {
@@ -43,6 +45,7 @@ public class ConversationResponse {
                 .lastMessagePreview(c.getLastMessagePreview())
                 .lastMessageAt(c.getLastMessageAt())
                 .unreadCount(c.getUnreadCount())
+                .status(c.getStatus())
                 .createdAt(c.getCreatedAt())
                 .build();
     }
