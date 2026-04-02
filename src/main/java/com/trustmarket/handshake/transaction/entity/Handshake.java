@@ -32,6 +32,12 @@ public class Handshake {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    /** Optimistic lock — prevents lost updates under concurrent modification. */
+    @Version
+    @Column(name = "version", nullable = false)
+    @Builder.Default
+    private Long version = 0L;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "listing_id", nullable = false)
     private Listing listing;
@@ -57,6 +63,9 @@ public class Handshake {
 
     @Column(name = "otp_code_hash", length = 255)
     private String otpCodeHash;
+
+    @Column(name = "otp_reveal_ciphertext", length = 512)
+    private String otpRevealCiphertext;
 
     @Column(name = "otp_enabled", nullable = false)
     @Builder.Default

@@ -2,6 +2,7 @@ package com.trustmarket.handshake.config;
 
 import com.trustmarket.handshake.shared.security.JwtService;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.messaging.Message;
@@ -15,6 +16,7 @@ import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
@@ -27,35 +29,56 @@ public class StompJwtChannelInterceptor implements ChannelInterceptor {
         StompHeaderAccessor accessor = StompHeaderAccessor.wrap(message);
 
         if (StompCommand.CONNECT.equals(accessor.getCommand())) {
-            String rawHeader = firstHeader(accessor, HttpHeaders.AUTHORIZATION);
-            if (rawHeader == null) {
-                rawHeader = firstHeader(accessor, "authorization");
-            }
-            if (rawHeader == null) {
-                rawHeader = firstHeader(accessor, "token");
-            }
-
-            if (rawHeader != null && rawHeader.startsWith("Bearer ")) {
-                String token = rawHeader.substring(7);
-                if (jwtService.isValid(token)) {
-                    Claims claims = jwtService.parse(token);
-                    String type = (String) claims.get("type");
-                    if ("ACCESS".equals(type)) {
-                        String userId = (String) claims.get("userId");
-                        String role = (String) claims.get("role");
-
-                        var auth = new UsernamePasswordAuthenticationToken(
-                                userId,
-                                null,
-                                List.of(new SimpleGrantedAuthority("ROLE_" + role))
-                        );
-                        accessor.setUser(auth);
-                    }
-                }
-            }
+            authenticateConnect(accessor);
         }
 
         return message;
+    }
+
+    void authenticateConnect(StompHeaderAccessor accessor) {
+        String rawHeader = firstHeader(accessor, HttpHeaders.AUTHORIZATION);
+        if (rawHeader == null) {
+            rawHeader = firstHeader(accessor, "authorization");
+        }
+        if (rawHeader == null) {
+            rawHeader = firstHeader(accessor, "token");
+        }
+
+        if (rawHeader == null || !rawHeader.startsWith("Bearer ")) {
+            return;
+        }
+
+        String token = rawHeader.substring(7).trim();
+        if (token.isEmpty()) {
+            return;
+        }
+
+        try {
+            Claims claims = jwtService.parse(token);
+            String type = claims.get("type", String.class);
+            if (!"ACCESS".equals(type)) {
+                return;
+            }
+
+            String userId = claims.get("userId", String.class);
+            String role = claims.get("role", String.class);
+            if (userId == null || userId.isBlank() || role == null || role.isBlank()) {
+                return;
+            }
+
+            // Validate UUID shape for consistency with HTTP JWT auth path.
+            UUID.fromString(userId);
+            String authority = role.startsWith("ROLE_") ? role : "ROLE_" + role;
+
+            var auth = new UsernamePasswordAuthenticationToken(
+                    userId,
+                    null,
+                    List.of(new SimpleGrantedAuthority(authority))
+            );
+            accessor.setUser(auth);
+        } catch (JwtException | IllegalArgumentException ignored) {
+            // Ignore malformed auth headers and continue CONNECT without a user.
+        }
     }
 
     private String firstHeader(StompHeaderAccessor accessor, String name) {

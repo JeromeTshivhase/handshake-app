@@ -4,6 +4,8 @@ import com.trustmarket.handshake.listing.entity.Listing;
 import com.trustmarket.handshake.listing.entity.ListingStatus;
 import com.trustmarket.handshake.listing.repository.ListingRepository;
 import com.trustmarket.handshake.notification.service.NotificationPublisher;
+import com.trustmarket.handshake.safe_meetup.entity.MeetupStatus;
+import com.trustmarket.handshake.safe_meetup.repository.MeetupRepository;
 import com.trustmarket.handshake.shared.exception.BadRequestException;
 import com.trustmarket.handshake.shared.exception.ForbiddenException;
 import com.trustmarket.handshake.shared.exception.NotFoundException;
@@ -14,12 +16,17 @@ import com.trustmarket.handshake.transaction.enums.TransactionStatus;
 import com.trustmarket.handshake.transaction.repository.HandshakeRepository;
 import com.trustmarket.handshake.transaction.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.EnumSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class TransactionService {
@@ -28,8 +35,29 @@ public class TransactionService {
     private final ListingRepository listingRepository;
     private final NotificationPublisher notificationPublisher;
     private final HandshakeRepository handshakeRepository;
+    private final MeetupRepository meetupRepository;
+
+    /**
+     * Allowed status transitions.
+     * Terminal states (COMPLETED, REFUNDED) have no outbound edges.
+     */
+    private static final Map<TransactionStatus, Set<TransactionStatus>> VALID_TRANSITIONS = Map.of(
+            TransactionStatus.INITIATED,       EnumSet.of(TransactionStatus.PAYMENT_PENDING, TransactionStatus.CANCELLED),
+            TransactionStatus.PAYMENT_PENDING, EnumSet.of(TransactionStatus.ESCROW_HELD, TransactionStatus.CANCELLED),
+            TransactionStatus.ESCROW_HELD,     EnumSet.of(TransactionStatus.COMPLETED, TransactionStatus.DISPUTED, TransactionStatus.REFUNDED),
+            TransactionStatus.DISPUTED,        EnumSet.of(TransactionStatus.REFUNDED)
+    );
+
+    private void validateTransition(TransactionStatus from, TransactionStatus to) {
+        Set<TransactionStatus> allowed = VALID_TRANSITIONS.getOrDefault(from, Set.of());
+        if (!allowed.contains(to)) {
+            throw new BadRequestException(
+                    "Invalid transaction status transition from " + from + " to " + to);
+        }
+    }
 
     @Transactional
+    @SuppressWarnings("UnusedReturnValue")
     public Transaction createFromAcceptedHandshake(Handshake handshake) {
         Listing listing = handshake.getListing();
 
@@ -47,21 +75,23 @@ public class TransactionService {
 
     @Transactional
     public void markPaymentPending(Transaction txn) {
+        validateTransition(txn.getStatus(), TransactionStatus.PAYMENT_PENDING);
         txn.setStatus(TransactionStatus.PAYMENT_PENDING);
         transactionRepository.save(txn);
     }
 
     @Transactional
     public void markEscrowHeld(Transaction txn) {
+        validateTransition(txn.getStatus(), TransactionStatus.ESCROW_HELD);
         txn.setStatus(TransactionStatus.ESCROW_HELD);
         txn.setEscrowHeldAt(LocalDateTime.now());
         transactionRepository.save(txn);
     }
 
     /**
-     * Buyer confirms meetup/delivery completed:
+     * Buyer confirms meetup/delivery completed.
+     * For meetup-backed transactions the OTP must have been verified first.
      * ESCROW_HELD -> COMPLETED
-     * Listing ACTIVE -> SOLD
      */
     @Transactional
     public Transaction complete(UUID transactionId, UUID buyerId) {
@@ -72,20 +102,25 @@ public class TransactionService {
             throw new ForbiddenException("Only the buyer can complete the transaction");
         }
 
-        if (txn.getStatus() != TransactionStatus.ESCROW_HELD) {
-            throw new BadRequestException("Transaction must be ESCROW_HELD to complete. Current=" + txn.getStatus());
-        }
+        validateTransition(txn.getStatus(), TransactionStatus.COMPLETED);
+
+        // Require OTP to be verified when a meetup exists for this handshake.
+        meetupRepository.findByHandshake_Id(txn.getHandshake().getId())
+                .ifPresent(meetup -> {
+                    if (meetup.getStatus() != MeetupStatus.COMPLETED) {
+                        throw new BadRequestException(
+                                "OTP must be verified at the meetup location before completing the transaction");
+                    }
+                });
 
         txn.setStatus(TransactionStatus.COMPLETED);
         txn.setCompletedAt(LocalDateTime.now());
         txn = transactionRepository.save(txn);
 
-        // Mark listing as SOLD (it may have been ACTIVE, or still shown in search up to now)
         Listing listing = txn.getListing();
         listing.setStatus(ListingStatus.SOLD);
         listingRepository.save(listing);
 
-        // Mark handshake as COMPLETED
         Handshake handshake = txn.getHandshake();
         handshake.setStatus(HandshakeStatus.COMPLETED);
         handshakeRepository.save(handshake);
@@ -110,26 +145,35 @@ public class TransactionService {
     public void markDisputed(UUID transactionId, String reason) {
         Transaction txn = transactionRepository.findByIdWithDetails(transactionId)
                 .orElseThrow(() -> new NotFoundException("Transaction not found: " + transactionId));
+
+        validateTransition(txn.getStatus(), TransactionStatus.DISPUTED);
         txn.setStatus(TransactionStatus.DISPUTED);
         transactionRepository.save(txn);
+
+        if (reason != null && !reason.isBlank()) {
+            log.info("Transaction {} disputed. Reason: {}", transactionId, reason);
+        }
+
         Handshake handshake = txn.getHandshake();
         handshake.setStatus(HandshakeStatus.DISPUTED);
         handshakeRepository.save(handshake);
-        // Optionally store reason in a new field or log
     }
 
     @Transactional
     public void refundToBuyer(UUID transactionId) {
         Transaction txn = transactionRepository.findByIdWithDetails(transactionId)
                 .orElseThrow(() -> new NotFoundException("Transaction not found: " + transactionId));
-        if (txn.getStatus() != TransactionStatus.ESCROW_HELD && txn.getStatus() != TransactionStatus.DISPUTED) {
-            throw new BadRequestException("Only ESCROW_HELD or DISPUTED transactions can be refunded");
-        }
+
+        validateTransition(txn.getStatus(), TransactionStatus.REFUNDED);
+
+        // TODO: call PayFast refund API here before persisting REFUNDED status
+        // payFastService.issueRefund(payment.getPaymentReference(), txn.getAmount());
+
         txn.setStatus(TransactionStatus.REFUNDED);
         transactionRepository.save(txn);
+
         Handshake handshake = txn.getHandshake();
         handshake.setStatus(HandshakeStatus.CANCELLED);
         handshakeRepository.save(handshake);
-        // TODO: Integrate with payment provider to actually move funds
     }
 }

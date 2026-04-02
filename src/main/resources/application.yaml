@@ -85,6 +85,10 @@ payfast:
   return-url: ${PAYFAST_RETURN_URL:${APP_DOMAIN:http://localhost:8080}/payment/success}
   cancel-url: ${PAYFAST_CANCEL_URL:${APP_DOMAIN:http://localhost:8080}/payment/cancel}
   notify-url: ${PAYFAST_NOTIFY_URL:${APP_DOMAIN:http://localhost:8080}/api/payments/payfast/notify}
+  # Comma-separated CIDR ranges that PayFast uses to POST ITN notifications.
+  allowed-ips: ${PAYFAST_ALLOWED_IPS:197.97.145.144/28,196.33.227.224/28,41.74.179.192/27}
+  # Set to false in development / sandbox to bypass IP check.
+  ip-check-enabled: ${PAYFAST_IP_CHECK_ENABLED:true}
 
 # =========================
 # App-specific configs
@@ -94,11 +98,24 @@ app:
   enforce-domain-in-prod: ${APP_ENFORCE_DOMAIN_IN_PROD:true}
   redis:
     enabled: ${REDIS_ENABLED:true}
+  otp:
+    reveal-key-b64: ${APP_OTP_REVEAL_KEY_B64:Qzc0b0d6Sm81R3V0QjJqYzBhdDZOYWkzQ0R2VndwM3Q=}
+  # Comma-separated hostnames whose returnUrl is accepted (empty = allow all).
+  allowed-return-url-hosts: ${APP_ALLOWED_RETURN_URL_HOSTS:}
   upload:
     dir: ./uploads
     base-url: ${APP_UPLOAD_BASE_URL:${APP_DOMAIN:}/uploads}
   http-cache:
     public-max-age-seconds: ${APP_HTTP_CACHE_PUBLIC_MAX_AGE_SECONDS:60}
+
+handshake:
+  pending-expiry-hours: ${HANDSHAKE_PENDING_EXPIRY_HOURS:48}
+  accepted-unpaid-expiry-hours: ${HANDSHAKE_ACCEPTED_UNPAID_EXPIRY_HOURS:24}
+
+otp:
+  expires-minutes: ${SAFE_MEETUP_OTP_EXPIRES_MINUTES:10}
+  max-failed-attempts: ${SAFE_MEETUP_OTP_MAX_FAILED_ATTEMPTS:5}
+  lock-minutes: ${SAFE_MEETUP_OTP_LOCK_MINUTES:15}
 
 # =========================
 # Cloudinary
@@ -131,3 +148,15 @@ cors:
   max-age-seconds: ${CORS_MAX_AGE_SECONDS:86400}
   allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:8081,http://localhost:5173,https://handshake-app-bd3y.onrender.com,https://trustmarket-app-1.onrender.com,https://handshake-app-production-3b09.up.railway.app,https://id-preview--a165c56a-afbb-4d6c-831c-f60cbbfd31a8.lovable.app,https://a165c56a-afbb-4d6c-831c-f60cbbfd31a8.lovableproject.com}
   allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:https://id-preview--*.lovable.app,https://*.lovableproject.com}
+
+messaging:
+  max-content-length: ${APP_MESSAGING_MAX_CONTENT_LENGTH:5000}
+  preview-length: ${APP_MESSAGING_PREVIEW_LENGTH:100}
+  rate-limit:
+    messages-per-minute: ${APP_MESSAGING_MESSAGES_PER_MINUTE:30}
+  email:
+    enabled: ${APP_MESSAGING_EMAIL_ENABLED:true}
+    from: ${APP_MESSAGING_EMAIL_FROM:no-reply@handshake.local}
+    rate-limit:
+      per-hour: ${APP_MESSAGING_EMAIL_PER_HOUR:10}
+

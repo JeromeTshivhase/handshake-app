@@ -79,23 +79,27 @@ public class AuthController {
     }
 
 
-    @PostMapping("/2fa-enable")
-    public ApiResponse<Void> enable2fa(@Valid @RequestBody TwoFaEnableRequest req, @RequestHeader("Authorization") String authHeader) {
+    @PostMapping("/2fa/setup")
+    public ApiResponse<TwoFaSetupResponse> setup2fa(@Valid @RequestBody TwoFaSetupRequest req, @RequestHeader("Authorization") String authHeader) {
         UUID userId = extractUserIdFromJwt(authHeader);
-        authService.enable2fa(userId, req);
+        return ApiResponse.ok(authService.setup2fa(userId, req));
+    }
+
+    @PostMapping("/2fa/enable")
+    public ApiResponse<java.util.List<String>> enable2fa(@Valid @RequestBody TwoFaEnableRequest req, @RequestHeader("Authorization") String authHeader) {
+        UUID userId = extractUserIdFromJwt(authHeader);
+        return ApiResponse.ok(authService.enable2fa(userId, req));
+    }
+
+    @PostMapping("/2fa/disable")
+    public ApiResponse<Void> disable2fa(@Valid @RequestBody PasswordRequest req, @RequestHeader("Authorization") String authHeader) {
+        UUID userId = extractUserIdFromJwt(authHeader);
+        authService.disable2fa(userId, req.getPassword());
         return ApiResponse.ok(null);
     }
 
 
-    @PostMapping("/2fa-disable")
-    public ApiResponse<Void> disable2fa(@RequestHeader("Authorization") String authHeader) {
-        UUID userId = extractUserIdFromJwt(authHeader);
-        authService.disable2fa(userId);
-        return ApiResponse.ok(null);
-    }
-
-
-    @PostMapping("/2fa-verify")
+    @PostMapping("/2fa/verify")
     public ApiResponse<Void> verify2fa(@Valid @RequestBody TwoFaVerifyRequest req, @RequestHeader("Authorization") String authHeader) {
         UUID userId = extractUserIdFromJwt(authHeader);
         authService.verify2fa(userId, req);
@@ -103,11 +107,17 @@ public class AuthController {
     }
 
 
-    @GetMapping("/2fa-status")
-    public ApiResponse<Boolean> get2faStatus(@RequestHeader("Authorization") String authHeader) {
+    @GetMapping("/2fa/status")
+    public ApiResponse<TwoFaStatusResponse> get2faStatus(@RequestHeader("Authorization") String authHeader) {
         UUID userId = extractUserIdFromJwt(authHeader);
-        boolean enabled = authService.get2faStatus(userId);
-        return ApiResponse.ok(enabled);
+        return ApiResponse.ok(authService.get2faStatus(userId));
+    }
+
+    @PostMapping("/2fa/recovery/regenerate")
+    public ApiResponse<java.util.List<String>> regenerateRecoveryCodes(@Valid @RequestBody VerificationCodeRequest req,
+                                                                       @RequestHeader("Authorization") String authHeader) {
+        UUID userId = extractUserIdFromJwt(authHeader);
+        return ApiResponse.ok(authService.regenerateRecoveryCodes(userId, req.getCode()));
     }
 
     private UUID extractUserIdFromJwt(String authHeader) {

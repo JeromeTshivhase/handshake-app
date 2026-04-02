@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -35,5 +37,26 @@ public class MyConversationController {
         UUID userId = AuthUtils.userId(auth);
         var conversation = conversationService.getOwnedConversation(id, userId);
         return ApiResponse.ok(ConversationResponse.fromEntity(conversation));
+    }
+
+    @PostMapping("/{id}/archive")
+    public ApiResponse<Void> archive(Authentication auth, @PathVariable UUID id) {
+        UUID userId = AuthUtils.userId(auth);
+        conversationService.archive(id, userId);
+        return ApiResponse.ok(null);
+    }
+
+    @PostMapping("/users/{userId}/block")
+    public ApiResponse<Void> blockUser(Authentication auth, @PathVariable UUID userId) {
+        UUID actorId = AuthUtils.userId(auth);
+        conversationService.blockUser(actorId, userId);
+        return ApiResponse.ok(null);
+    }
+
+    @DeleteMapping("/users/{userId}/block")
+    public ApiResponse<Void> unblockUser(Authentication auth, @PathVariable UUID userId) {
+        UUID actorId = AuthUtils.userId(auth);
+        conversationService.unblockUser(actorId, userId);
+        return ApiResponse.ok(null);
     }
 }

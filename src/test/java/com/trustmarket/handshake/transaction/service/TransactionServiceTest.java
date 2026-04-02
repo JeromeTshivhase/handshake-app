@@ -4,6 +4,7 @@ import com.trustmarket.handshake.listing.entity.Listing;
 import com.trustmarket.handshake.listing.entity.ListingStatus;
 import com.trustmarket.handshake.listing.repository.ListingRepository;
 import com.trustmarket.handshake.notification.service.NotificationPublisher;
+import com.trustmarket.handshake.safe_meetup.repository.MeetupRepository;
 import com.trustmarket.handshake.transaction.entity.Transaction;
 import com.trustmarket.handshake.transaction.entity.Handshake;
 import com.trustmarket.handshake.transaction.enums.TransactionStatus;
@@ -40,11 +41,16 @@ class TransactionServiceTest {
     @Mock
     private HandshakeRepository handshakeRepository;
 
+    @Mock
+    private MeetupRepository meetupRepository;
+
     private TransactionService transactionService;
 
     @BeforeEach
     void setUp() {
-        transactionService = new TransactionService(transactionRepository, listingRepository, notificationPublisher, handshakeRepository);
+        transactionService = new TransactionService(
+                transactionRepository, listingRepository, notificationPublisher,
+                handshakeRepository, meetupRepository);
     }
 
     @Test
@@ -79,6 +85,7 @@ class TransactionServiceTest {
         txn.setHandshake(handshake);
 
         when(transactionRepository.findByIdWithDetails(txn.getId())).thenReturn(Optional.of(txn));
+        when(meetupRepository.findByHandshake_Id(handshake.getId())).thenReturn(Optional.empty());
         when(transactionRepository.save(txn)).thenReturn(txn);
         when(listingRepository.save(listing)).thenReturn(listing);
 

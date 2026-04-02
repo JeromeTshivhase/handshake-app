@@ -10,7 +10,6 @@ import com.trustmarket.handshake.transaction.enums.PaymentProvider;
 import com.trustmarket.handshake.transaction.enums.PaymentStatus;
 import com.trustmarket.handshake.transaction.repository.PaymentRepository;
 import com.trustmarket.handshake.user.entity.User;
-import com.trustmarket.handshake.safe_meetup.service.SafeMeetupOtpService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -46,9 +45,6 @@ class PayFastServiceTest {
     private NotificationPublisher notificationPublisher;
 
     @Mock
-    private SafeMeetupOtpService safeMeetupOtpService;
-
-    @Mock
     private com.trustmarket.handshake.transaction.repository.HandshakeRepository handshakeRepository;
 
     private PayFastService payFastService;
@@ -60,7 +56,6 @@ class PayFastServiceTest {
             transactionService,
             new ObjectMapper(),
             notificationPublisher,
-            safeMeetupOtpService,
             handshakeRepository
         );
         ReflectionTestUtils.setField(payFastService, "passphrase", "");

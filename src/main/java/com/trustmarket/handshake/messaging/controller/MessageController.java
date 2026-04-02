@@ -71,7 +71,14 @@ public class MessageController {
         return ApiResponse.ok(updated);
     }
 
-    // TODO: Add abuse prevention (rate limiting) for messaging
-    // Example: Use a rate limiter (e.g., Bucket4j, Redis, or Guava RateLimiter) to limit messages per user per minute
-    // This should be enforced in the service or via a filter/aspect
+    @DeleteMapping("/{messageId}")
+    @Operation(summary = "Delete own message (soft delete)", operationId = "deleteMessage")
+    public ApiResponse<Void> delete(
+            @PathVariable UUID conversationId,
+            @PathVariable UUID messageId,
+            Authentication auth) {
+        UUID userId = AuthUtils.userId(auth);
+        messageService.delete(conversationId, messageId, userId);
+        return ApiResponse.ok(null);
+    }
 }

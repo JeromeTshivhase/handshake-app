@@ -6,7 +6,10 @@ import com.trustmarket.handshake.notification.entity.Notification;
 import com.trustmarket.handshake.notification.repository.NotificationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
@@ -21,6 +24,15 @@ public class NotificationEventListener {
     private final ObjectMapper objectMapper;
 
 
+    /**
+     * Runs asynchronously (off the HTTP thread) in the dedicated notification
+     * thread pool AFTER the publishing transaction has successfully committed.
+     *
+     * REQUIRES_NEW ensures this method runs in its own fresh transaction so
+     * that the DB save is independent of the original business transaction.
+     */
+    @Async("notificationExecutor")
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onNotification(DomainNotificationEvent event) {
         log.info("[NotificationEventListener] Received event: {} for user {}", event.type(), event.recipientUserId());

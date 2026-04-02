@@ -98,6 +98,21 @@ public class User {
     @Column(name = "two_fa_secret", length = 255)
     private String twoFaSecret;
 
+    @Column(name = "two_fa_method", length = 20)
+    private String twoFaMethod;
+
+    @Column(name = "two_fa_setup_secret", length = 255)
+    private String twoFaSetupSecret;
+
+    @Column(name = "two_fa_setup_created_at")
+    private LocalDateTime twoFaSetupCreatedAt;
+
+    @Column(name = "two_fa_enabled_at")
+    private LocalDateTime twoFaEnabledAt;
+
+    @Column(name = "recovery_codes", length = 4000)
+    private String recoveryCodes;
+
     @Column(name = "rating_average", nullable = false)
     @Builder.Default
     private double ratingAverage = 0.0;

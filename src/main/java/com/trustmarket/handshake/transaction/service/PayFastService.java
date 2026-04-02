@@ -9,7 +9,6 @@ import com.trustmarket.handshake.transaction.enums.PaymentProvider;
 import com.trustmarket.handshake.transaction.enums.PaymentStatus;
 import com.trustmarket.handshake.transaction.repository.HandshakeRepository;
 import com.trustmarket.handshake.transaction.repository.PaymentRepository;
-import com.trustmarket.handshake.safe_meetup.service.SafeMeetupOtpService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -35,7 +34,6 @@ public class PayFastService {
     private final TransactionService transactionService;
     private final ObjectMapper objectMapper;
     private final NotificationPublisher notificationPublisher;
-    private final SafeMeetupOtpService safeMeetupOtpService;
     private final HandshakeRepository handshakeRepository;
 
     @Value("${payfast.merchant-id}") private String merchantId;
@@ -122,6 +120,10 @@ public class PayFastService {
         } catch (Exception ignore) {}
 
         if ("COMPLETE".equalsIgnoreCase(paymentStatus)) {
+            if (payment.getStatus() == PaymentStatus.PAID) {
+                log.warn("Duplicate ITN received for already-PAID payment {}. Ignoring.", paymentId);
+                return;
+            }
             payment.setStatus(PaymentStatus.PAID);
             payment.setPaymentReference(pfPaymentId);
             payment.setPaidAt(LocalDateTime.now());
@@ -141,18 +143,6 @@ public class PayFastService {
 
             log.info("Payment PAID and escrow held. payment={}, txn={}", payment.getId(), txn.getId());
 
-            // --- Trigger OTP generation if eligible ---
-            try {
-                // Only enable OTP if handshake is ESCROW_HELD and transaction is ESCROW_HELD
-                if (handshake.getStatus() == com.trustmarket.handshake.transaction.enums.HandshakeStatus.ESCROW_HELD
-                        && txn.getStatus() == com.trustmarket.handshake.transaction.enums.TransactionStatus.ESCROW_HELD) {
-                    // Use dummy coordinates (0,0) if not available; service will validate eligibility
-                    safeMeetupOtpService.enableIfEligible(handshake.getId(), handshake.getBuyer().getId(), 0.0, 0.0);
-                    log.info("OTP generation triggered for handshake {} after escrow held.", handshake.getId());
-                }
-            } catch (Exception e) {
-                log.error("Failed to trigger OTP generation after escrow held: {}", e.getMessage(), e);
-            }
         } else if ("FAILED".equalsIgnoreCase(paymentStatus)) {
             payment.setStatus(PaymentStatus.FAILED);
             payment.setPaymentReference(pfPaymentId);

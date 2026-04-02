@@ -1,6 +1,7 @@
 package com.trustmarket.handshake.transaction.dto;
 
 import com.trustmarket.handshake.transaction.entity.Transaction;
+import com.trustmarket.handshake.transaction.enums.PaymentStatus;
 import com.trustmarket.handshake.transaction.enums.TransactionStatus;
 import lombok.*;
 
@@ -24,6 +25,9 @@ public class TransactionResponse {
     private String currency;
 
     private TransactionStatus status;
+    private PaymentStatus paymentStatus;
+    private String paymentReference;
+
     private LocalDateTime escrowHeldAt;
     private LocalDateTime completedAt;
     private LocalDateTime createdAt;
@@ -42,5 +46,12 @@ public class TransactionResponse {
                 .completedAt(t.getCompletedAt())
                 .createdAt(t.getCreatedAt())
                 .build();
+    }
+
+    public static TransactionResponse from(Transaction t, PaymentStatus paymentStatus, String paymentReference) {
+        TransactionResponse r = from(t);
+        r.setPaymentStatus(paymentStatus);
+        r.setPaymentReference(paymentReference);
+        return r;
     }
 }

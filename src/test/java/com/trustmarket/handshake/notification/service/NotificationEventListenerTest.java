@@ -10,10 +10,14 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -30,7 +34,8 @@ class NotificationEventListenerTest {
 
     @BeforeEach
     void setUp() {
-        notificationEventListener = new NotificationEventListener(notificationRepository, notificationDeliveryService, new ObjectMapper());
+        notificationEventListener = new NotificationEventListener(
+                notificationRepository, notificationDeliveryService, new ObjectMapper());
     }
 
     @Test
@@ -44,12 +49,91 @@ class NotificationEventListenerTest {
                 true
         );
 
-        when(notificationRepository.save(any(Notification.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(notificationRepository.save(any(Notification.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         notificationEventListener.onNotification(event);
 
         verify(notificationRepository).save(any(Notification.class));
-        verify(notificationDeliveryService).deliver(any(Notification.class), org.mockito.Mockito.eq(true));
+        verify(notificationDeliveryService).deliver(any(Notification.class), eq(true));
+    }
+
+    @Test
+    void onNotificationSkipsDeliveryWhenSaveFails() {
+        DomainNotificationEvent event = new DomainNotificationEvent(
+                UUID.randomUUID(),
+                NotificationEventType.HANDSHAKE_REQUEST,
+                "New Offer",
+                "Someone wants to buy your item",
+                Map.of("handshakeId", "abc"),
+                true
+        );
+
+        when(notificationRepository.save(any(Notification.class)))
+                .thenThrow(new RuntimeException("DB error"));
+
+        notificationEventListener.onNotification(event);
+
+        verify(notificationRepository).save(any(Notification.class));
+        verify(notificationDeliveryService, never()).deliver(any(), anyBoolean());
+    }
+
+    @Test
+    void onNotificationPassesEmailEligibleFalseToDelivery() {
+        DomainNotificationEvent event = new DomainNotificationEvent(
+                UUID.randomUUID(),
+                NotificationEventType.HANDSHAKE_ACCEPTED,
+                "Accepted",
+                "Your handshake was accepted",
+                Map.of(),
+                false   // not email-eligible
+        );
+
+        when(notificationRepository.save(any(Notification.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        notificationEventListener.onNotification(event);
+
+        verify(notificationDeliveryService).deliver(any(Notification.class), eq(false));
+    }
+
+    @Test
+    void onNotificationHandlesNullPayload() {
+        DomainNotificationEvent event = new DomainNotificationEvent(
+                UUID.randomUUID(),
+                NotificationEventType.USER_CREATED,
+                "Welcome",
+                "Account created",
+                null,   // null payload
+                true
+        );
+
+        when(notificationRepository.save(any(Notification.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        notificationEventListener.onNotification(event);
+
+        verify(notificationRepository).save(any(Notification.class));
+        verify(notificationDeliveryService).deliver(any(Notification.class), eq(true));
+    }
+
+    @Test
+    void onNotificationHandlesEmptyPayload() {
+        DomainNotificationEvent event = new DomainNotificationEvent(
+                UUID.randomUUID(),
+                NotificationEventType.USER_CREATED,
+                "Welcome",
+                "Account created",
+                Collections.emptyMap(),
+                true
+        );
+
+        when(notificationRepository.save(any(Notification.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        notificationEventListener.onNotification(event);
+
+        verify(notificationRepository).save(any(Notification.class));
+        verify(notificationDeliveryService).deliver(any(Notification.class), eq(true));
     }
 }
-
