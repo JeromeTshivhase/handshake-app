@@ -23,8 +23,11 @@ public class UploadController {
     @Operation(summary = "Upload one image", operationId = "uploadSingleImage")
     @PostMapping(value = "/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ApiResponse<UploadResponse> uploadImage(@RequestParam("file") MultipartFile file) {
-        String url = fileStorageService.store(file);
-        return ApiResponse.ok(UploadResponse.builder().url(url).build());
+        UploadedImage image = fileStorageService.storeImage(file);
+        return ApiResponse.ok(UploadResponse.builder()
+                .url(image.getUrl())
+                .publicId(image.getPublicId())
+                .build());
     }
 
     /**
@@ -36,8 +39,10 @@ public class UploadController {
     @Operation(summary = "Upload multiple images (max 10)", description = "Upload up to 10 images at once. Maximum 10 images per upload. Exceeding this will result in a 400 error.", operationId = "uploadMultipleImages")
     @PostMapping(value = "/images/batch", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ApiResponse<UploadResponse> uploadImages(@RequestPart("files") MultipartFile[] files) {
+        var images = fileStorageService.storeAllImages(files);
         return ApiResponse.ok(UploadResponse.builder()
-                .urls(fileStorageService.storeAll(files))
+                .files(images)
+                .urls(images.stream().map(UploadedImage::getUrl).toList())
                 .build());
     }
 }
