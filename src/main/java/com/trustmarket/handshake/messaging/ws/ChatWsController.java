@@ -1,7 +1,9 @@
 package com.trustmarket.handshake.messaging.ws;
 
 import com.trustmarket.handshake.messaging.service.MessageService;
+import com.trustmarket.handshake.messaging.service.TypingIndicatorService;
 import com.trustmarket.handshake.messaging.ws.dto.WsSendMessageRequest;
+import com.trustmarket.handshake.messaging.ws.dto.WsTypingIndicatorRequest;
 import com.trustmarket.handshake.shared.exception.BadRequestException;
 import com.trustmarket.handshake.shared.security.AuthUtils;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +21,7 @@ import java.time.Instant;
 public class ChatWsController {
 
     private final MessageService messageService;
+    private final TypingIndicatorService typingIndicatorService;
 
     @Value("${messaging.max-content-length:5000}")
     private int maxContentLength;
@@ -47,5 +50,14 @@ public class ChatWsController {
                 req.getType(),
                 req.getChannels()
         );
+    }
+
+    @MessageMapping("/chat.typing")
+    public void typing(Authentication auth, WsTypingIndicatorRequest req) {
+        if (req == null || req.getConversationId() == null) {
+            throw new BadRequestException("conversationId is required");
+        }
+        var senderId = AuthUtils.userId(auth);
+        typingIndicatorService.publishTyping(req.getConversationId(), senderId, req.isTyping());
     }
 }

@@ -44,6 +44,7 @@ public class MessageService {
     private final ApplicationEventPublisher eventPublisher;
     private final RateLimiterService rateLimiterService;
     private final SimpMessagingTemplate messagingTemplate;
+    private final MessageSafetyService messageSafetyService;
 
     @Value("${messaging.rate-limit.messages-per-minute:30}")
     private int messagesPerMinute;
@@ -53,6 +54,18 @@ public class MessageService {
 
     @Value("${messaging.max-content-length:5000}")
     private int maxContentLength;
+
+    @Value("${messaging.safety.mode:warn}")
+    private String safetyMode;
+
+    @Value("${messaging.safety.sanitize-content:true}")
+    private boolean sanitizeContent;
+
+    @Value("${messaging.safety.block-social-handles:false}")
+    private boolean blockSocialHandles;
+
+    @Value("${messaging.safety.block-phone-numbers:false}")
+    private boolean blockPhoneNumbers;
 
     @Transactional
     public MessageResponse send(UUID conversationId, UUID senderId, String content) {
@@ -104,11 +117,22 @@ public class MessageService {
         User sender = userRepository.findById(senderId)
                 .orElseThrow(() -> new NotFoundException("Sender not found: " + senderId));
 
+        String normalized = content.trim();
+        MessageSafetyService.MessageSafetyAssessment safety = messageSafetyService.assess(normalized);
+        String effectiveContent = sanitizeContent ? safety.sanitizedContent() : normalized;
+
+        if ("block".equalsIgnoreCase(safetyMode) && shouldBlock(safety)) {
+            throw new BadRequestException("Message blocked for safety reasons. Keep communication on-platform.");
+        }
+        if (!safety.flags().isEmpty()) {
+            log.warn("Message safety flags for user {} conversation {}: {}", senderId, conversationId, safety.flags());
+        }
+
         Message msg = Message.builder()
                 .conversation(c)
                 .sender(sender)
                 .type(type == null ? MessageType.TEXT : type)
-                .content(content.trim())
+                .content(effectiveContent)
                 .read(false)
                 .build();
 
@@ -137,6 +161,16 @@ public class MessageService {
             return EnumSet.of(MessageDeliveryChannel.IN_APP);
         }
         return EnumSet.copyOf(channels);
+    }
+
+    private boolean shouldBlock(MessageSafetyService.MessageSafetyAssessment safety) {
+        if (safety.highRisk()) {
+            return true;
+        }
+        if (blockSocialHandles && safety.hasFlag("SOCIAL_MEDIA_HANDLE")) {
+            return true;
+        }
+        return blockPhoneNumbers && safety.hasFlag("PHONE_NUMBER");
     }
 
     @Transactional(readOnly = true)

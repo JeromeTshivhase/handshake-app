@@ -4,8 +4,11 @@ import com.trustmarket.handshake.listing.entity.Listing;
 import com.trustmarket.handshake.listing.entity.ListingStatus;
 import com.trustmarket.handshake.listing.repository.ListingRepository;
 import com.trustmarket.handshake.transaction.entity.Handshake;
+import com.trustmarket.handshake.transaction.entity.Transaction;
 import com.trustmarket.handshake.transaction.enums.HandshakeStatus;
+import com.trustmarket.handshake.transaction.enums.TransactionStatus;
 import com.trustmarket.handshake.transaction.repository.HandshakeRepository;
+import com.trustmarket.handshake.transaction.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,6 +26,8 @@ public class EscrowMaintenanceService {
 
     private final HandshakeRepository handshakeRepository;
     private final ListingRepository listingRepository;
+    private final TransactionRepository transactionRepository;
+    private final TransactionService transactionService;
 
     @Value("${handshake.pending-expiry-hours:48}")
     private int pendingExpiryHours;
@@ -60,6 +65,22 @@ public class EscrowMaintenanceService {
             }
             log.info("Auto-cancelled unpaid ACCEPTED handshake {} and reactivated listing {}",
                     h.getId(), listing.getId());
+        }
+    }
+
+    // Run every 10 minutes.
+    @Scheduled(cron = "0 */10 * * * *")
+    @Transactional
+    public void releaseHeldEscrows() {
+        LocalDateTime now = LocalDateTime.now();
+        List<Transaction> readyTransactions = transactionRepository
+                .findAllByStatusAndEscrowReleaseAtLessThanEqual(TransactionStatus.ESCROW_HELD, now);
+
+        for (Transaction txn : readyTransactions) {
+            boolean released = transactionService.autoReleaseEscrowIfDue(txn.getId());
+            if (released) {
+                log.info("Auto-released escrow for transaction {}", txn.getId());
+            }
         }
     }
 }

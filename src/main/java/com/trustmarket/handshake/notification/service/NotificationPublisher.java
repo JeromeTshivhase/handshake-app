@@ -1,7 +1,8 @@
 package com.trustmarket.handshake.notification.service;
 
-import com.trustmarket.handshake.notification.service.DomainNotificationEvent;
 import com.trustmarket.handshake.notification.entity.NotificationEventType;
+import com.trustmarket.handshake.safe_meetup.entity.Meetup;
+import com.trustmarket.handshake.transaction.entity.Handshake;
 import com.trustmarket.handshake.transaction.entity.Payment;
 import com.trustmarket.handshake.transaction.entity.Transaction;
 import com.trustmarket.handshake.user.entity.User;
@@ -14,7 +15,6 @@ import org.yaml.snakeyaml.Yaml;
 import java.io.InputStream;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -82,7 +82,7 @@ public class NotificationPublisher {
         ));
     }
 
-    public void publishMeetupScheduled(com.trustmarket.handshake.safe_meetup.entity.Meetup meetup) {
+    public void publishMeetupScheduled(Meetup meetup) {
         var handshake = meetup.getHandshake();
         eventPublisher.publishEvent(new DomainNotificationEvent(
                 handshake.getBuyer().getId(),
@@ -116,7 +116,7 @@ public class NotificationPublisher {
         ));
     }
 
-    public void publishOtpEnabled(com.trustmarket.handshake.transaction.entity.Handshake handshake) {
+    public void publishOtpEnabled(Handshake handshake) {
         eventPublisher.publishEvent(new DomainNotificationEvent(
                 handshake.getBuyer().getId(),
                 NotificationEventType.OTP_ENABLED,
@@ -354,6 +354,37 @@ public class NotificationPublisher {
                 NotificationEventType.TRANSACTION_COMPLETED,
                 yamlMsg("notification", "transaction", "completed_seller"),
                 safeReplace(yamlMsg("notification", "transaction", "completed_seller_body"), "{0}", txn.getListing().getTitle()),
+                payload,
+                true
+        ));
+    }
+
+    public void publishEscrowReleased(Transaction txn) {
+        Map<String, Object> payload = payloadOf(
+                "transactionId", txn.getId().toString(),
+                "listingId", txn.getListing().getId().toString(),
+                "listingTitle", txn.getListing().getTitle(),
+                "buyerId", txn.getBuyer().getId().toString(),
+                "sellerId", txn.getSeller().getId().toString(),
+                "amount", txn.getAmount() == null ? null : txn.getAmount().toPlainString(),
+                "status", txn.getStatus().name(),
+                "escrowReleaseAt", txn.getEscrowReleaseAt() == null ? null : txn.getEscrowReleaseAt().toString()
+        );
+
+        eventPublisher.publishEvent(new DomainNotificationEvent(
+                txn.getBuyer().getId(),
+                NotificationEventType.ESCROW_RELEASED,
+                yamlMsg("notification", "escrow", "released"),
+                safeReplace(yamlMsg("notification", "escrow", "released_body"), "{0}", txn.getListing().getTitle()),
+                payload,
+                true
+        ));
+
+        eventPublisher.publishEvent(new DomainNotificationEvent(
+                txn.getSeller().getId(),
+                NotificationEventType.ESCROW_RELEASED,
+                yamlMsg("notification", "escrow", "released_seller"),
+                safeReplace(yamlMsg("notification", "escrow", "released_seller_body"), "{0}", txn.getListing().getTitle()),
                 payload,
                 true
         ));

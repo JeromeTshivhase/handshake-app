@@ -16,6 +16,11 @@ notification:
     failed_body: "Your payment for '{0}' failed."
     failed_seller: "Buyer payment failed"
     failed_seller_body: "The payment attempt for your listing '{0}' failed."
+  escrow:
+    released: "Escrow released"
+    released_body: "Escrow for '{0}' has completed its hold period and is now released."
+    released_seller: "Payout released"
+    released_seller_body: "Your escrow hold for '{0}' has ended and the transaction was auto-completed."
   transaction:
     completed: "Transaction completed"
     completed_body: "You completed the transaction for '{0}'."

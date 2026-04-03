@@ -44,7 +44,7 @@ public class PaymentController {
      * Comma-separated list of CIDR blocks / individual IPs that PayFast POSTs from.
      * Override in env with PAYFAST_ALLOWED_IPS if ranges change.
      */
-    @Value("${payfast.allowed-ips:197.97.145.144/28,196.33.227.224/28,41.74.179.192/27}")
+    @Value("${payfast.allowed-ips:197.97.145.144/28,41.74.179.192/27,102.216.36.0/28,102.216.36.128/28,144.126.193.139}")
     private String payfastAllowedIpsCfg;
 
     @Value("${payfast.ip-check-enabled:true}")
