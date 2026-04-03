@@ -13,7 +13,7 @@ public class CorsConfig {
     @Value("${cors.max-age-seconds:86400}")
     private long corsMaxAgeSeconds;
 
-    @Value("${cors.allowed-origins:http://localhost:8081,https://handshake-app-bd3y.onrender.com,https://trustmarket-app-1.onrender.com,https://handshake-app-production-3b09.up.railway.app}")
+    @Value("${cors.allowed-origins:http://localhost:8081,https://handshake-app-bd3y.onrender.com,https://trustmarket-app-1.onrender.com,https://handshake-app-production-3b09.up.railway.app,https://trusty-marketplace-flow.onrender.com}")
     private List<String> allowedOrigins;
 
     @Value("${cors.allowed-origin-patterns:}")
