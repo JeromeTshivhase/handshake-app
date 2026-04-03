@@ -1,8 +1,10 @@
 package com.trustmarket.handshake.messaging.controller;
 
 import com.trustmarket.handshake.messaging.dto.MessageResponse;
+import com.trustmarket.handshake.messaging.dto.QuickReplyTemplateResponse;
 import com.trustmarket.handshake.messaging.dto.SendMessageRequest;
 import com.trustmarket.handshake.messaging.service.MessageService;
+import com.trustmarket.handshake.messaging.service.QuickReplyTemplateService;
 import com.trustmarket.handshake.shared.api.ApiResponse;
 import com.trustmarket.handshake.shared.security.AuthUtils;
 import io.swagger.v3.oas.annotations.Operation;
@@ -22,6 +24,7 @@ import java.util.UUID;
 public class MessageController {
 
     private final MessageService messageService;
+    private final QuickReplyTemplateService quickReplyTemplateService;
 
     @PostMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Send message", operationId = "sendMessage")
@@ -80,5 +83,14 @@ public class MessageController {
         UUID userId = AuthUtils.userId(auth);
         messageService.delete(conversationId, messageId, userId);
         return ApiResponse.ok(null);
+    }
+
+    @GetMapping("/quick-replies")
+    @Operation(summary = "Get quick reply templates", operationId = "listQuickReplyTemplates")
+    public ApiResponse<java.util.List<QuickReplyTemplateResponse>> quickReplies(
+            @PathVariable UUID conversationId,
+            Authentication auth) {
+        UUID userId = AuthUtils.userId(auth);
+        return ApiResponse.ok(quickReplyTemplateService.listForConversation(conversationId, userId));
     }
 }

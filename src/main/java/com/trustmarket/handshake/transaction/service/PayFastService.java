@@ -35,6 +35,7 @@ public class PayFastService {
     private final ObjectMapper objectMapper;
     private final NotificationPublisher notificationPublisher;
     private final HandshakeRepository handshakeRepository;
+    private final TrustBasedEscrowService trustBasedEscrowService;
 
     @Value("${payfast.merchant-id}") private String merchantId;
     @Value("${payfast.merchant-key}") private String merchantKey;
@@ -132,6 +133,7 @@ public class PayFastService {
             // move transaction to ESCROW_HELD
             Transaction txn = payment.getTransaction();
             transactionService.markEscrowHeld(txn);
+            int holdHours = trustBasedEscrowService.applyHoldPolicy(txn);
             notificationPublisher.publishPaymentPaid(payment);
 
             // --- Set handshake status to ESCROW_HELD and save ---
@@ -141,7 +143,7 @@ public class PayFastService {
                 handshakeRepository.save(handshake);
             }
 
-            log.info("Payment PAID and escrow held. payment={}, txn={}", payment.getId(), txn.getId());
+            log.info("Payment PAID and escrow held. payment={}, txn={}, holdHours={}", payment.getId(), txn.getId(), holdHours);
 
         } else if ("FAILED".equalsIgnoreCase(paymentStatus)) {
             payment.setStatus(PaymentStatus.FAILED);

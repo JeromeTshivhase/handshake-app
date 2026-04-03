@@ -15,6 +15,7 @@ import com.trustmarket.handshake.transaction.repository.HandshakeRepository;
 import com.trustmarket.handshake.user.entity.User;
 import com.trustmarket.handshake.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +25,12 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class HandshakeService {
+
+    @Value("${handshake.min-expiry-lead-seconds:30}")
+    private int minExpiryLeadSeconds;
+
+    @Value("${handshake.expiry-grace-seconds:30}")
+    private int expiryGraceSeconds;
 
     private final HandshakeRepository handshakeRepository;
     private final ListingRepository listingRepository;
@@ -43,6 +50,12 @@ public class HandshakeService {
      */
     @Transactional
     public Handshake create(UUID buyerId, CreateHandshakeRequest req) {
+        LocalDateTime now = LocalDateTime.now();
+
+        if (req.getExpiresAt() != null && !req.getExpiresAt().isAfter(now.plusSeconds(minExpiryLeadSeconds))) {
+            throw new BadRequestException("Handshake expiry must be at least " + minExpiryLeadSeconds + " seconds in the future");
+        }
+
         Listing listing = listingRepository.findById(req.getListingId())
                 .orElseThrow(() -> new NotFoundException("Listing not found: " + req.getListingId()));
 
@@ -93,6 +106,8 @@ public class HandshakeService {
         Handshake h = handshakeRepository.findById(handshakeId)
                 .orElseThrow(() -> new NotFoundException("Handshake not found: " + handshakeId));
 
+        LocalDateTime now = LocalDateTime.now();
+
         if (!h.getSeller().getId().equals(sellerId)) {
             throw new ForbiddenException("Only the seller can accept this handshake");
         }
@@ -101,7 +116,8 @@ public class HandshakeService {
             throw new BadRequestException("Handshake is not pending");
         }
 
-        if (h.getExpiresAt() != null && h.getExpiresAt().isBefore(LocalDateTime.now())) {
+        // Small grace period avoids race/time-skew edge cases right after creation.
+        if (h.getExpiresAt() != null && h.getExpiresAt().isBefore(now.minusSeconds(expiryGraceSeconds))) {
             h.setStatus(HandshakeStatus.EXPIRED);
             handshakeRepository.save(h);
             // Listing remains ACTIVE (not unlocked from PENDING)

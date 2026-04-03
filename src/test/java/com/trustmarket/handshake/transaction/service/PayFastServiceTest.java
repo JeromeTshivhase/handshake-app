@@ -47,6 +47,9 @@ class PayFastServiceTest {
     @Mock
     private com.trustmarket.handshake.transaction.repository.HandshakeRepository handshakeRepository;
 
+    @Mock
+    private TrustBasedEscrowService trustBasedEscrowService;
+
     private PayFastService payFastService;
 
     @BeforeEach
@@ -56,7 +59,8 @@ class PayFastServiceTest {
             transactionService,
             new ObjectMapper(),
             notificationPublisher,
-            handshakeRepository
+            handshakeRepository,
+            trustBasedEscrowService
         );
         ReflectionTestUtils.setField(payFastService, "passphrase", "");
         ReflectionTestUtils.setField(payFastService, "merchantId", "1000");
@@ -135,11 +139,13 @@ class PayFastServiceTest {
 
         when(paymentRepository.findById(payment.getId())).thenReturn(Optional.of(payment));
         when(paymentRepository.save(payment)).thenReturn(payment);
+        when(trustBasedEscrowService.applyHoldPolicy(txn)).thenReturn(48);
 
         payFastService.processItn("m_payment_id=" + payment.getId() + "&payment_status=COMPLETE&pf_payment_id=pf-123");
 
         assertEquals(PaymentStatus.PAID, payment.getStatus());
         verify(transactionService).markEscrowHeld(txn);
+        verify(trustBasedEscrowService).applyHoldPolicy(txn);
         verify(notificationPublisher).publishPaymentPaid(payment);
     }
 

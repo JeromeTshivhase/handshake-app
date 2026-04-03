@@ -25,7 +25,9 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -55,6 +57,9 @@ class MessageServiceTest {
     private SimpMessagingTemplate messagingTemplate;
 
     @Mock
+    private MessageSafetyService messageSafetyService;
+
+    @Mock
     private Bucket bucket;
 
     private MessageService messageService;
@@ -68,11 +73,17 @@ class MessageServiceTest {
                 userRepository,
                 eventPublisher,
                 rateLimiterService,
-                messagingTemplate
+                messagingTemplate,
+                messageSafetyService
         );
         ReflectionTestUtils.setField(messageService, "messagesPerMinute", 30);
         ReflectionTestUtils.setField(messageService, "previewLength", 100);
         ReflectionTestUtils.setField(messageService, "maxContentLength", 5000);
+        ReflectionTestUtils.setField(messageService, "safetyMode", "warn");
+        ReflectionTestUtils.setField(messageService, "sanitizeContent", true);
+        ReflectionTestUtils.setField(messageService, "blockSocialHandles", false);
+        ReflectionTestUtils.setField(messageService, "blockPhoneNumbers", false);
+        lenient().when(messageSafetyService.assess(any())).thenAnswer(i -> MessageSafetyService.MessageSafetyAssessment.safe(i.getArgument(0)));
     }
 
     @Test
@@ -100,6 +111,43 @@ class MessageServiceTest {
                 () -> messageService.send(conversationId, senderId, "Hello", MessageType.TEXT, null));
 
         verify(userRepository, never()).findById(any());
+        verify(messageRepository, never()).save(any(Message.class));
+    }
+
+    @Test
+    void sendThrowsWhenSafetyModeBlocksMessage() {
+        UUID conversationId = UUID.randomUUID();
+        UUID senderId = UUID.randomUUID();
+        UUID recipientId = UUID.randomUUID();
+
+        User sender = User.builder().id(senderId).email("a@example.com").passwordHash("x").firstName("A").lastName("B").build();
+        User recipient = User.builder().id(recipientId).email("b@example.com").passwordHash("x").firstName("C").lastName("D").build();
+
+        Conversation c = Conversation.builder()
+                .id(conversationId)
+                .buyer(sender)
+                .seller(recipient)
+                .status(ConversationStatus.ACTIVE)
+                .build();
+
+        ReflectionTestUtils.setField(messageService, "safetyMode", "block");
+
+        when(rateLimiterService.resolveBucket(any(), any(Integer.class), any())).thenReturn(bucket);
+        when(bucket.tryConsume(1)).thenReturn(true);
+        when(conversationRepository.findById(conversationId)).thenReturn(Optional.of(c));
+        when(userBlockRepository.existsByBlocker_IdAndBlocked_Id(senderId, recipientId)).thenReturn(false);
+        when(userBlockRepository.existsByBlocker_IdAndBlocked_Id(recipientId, senderId)).thenReturn(false);
+        when(userRepository.findById(senderId)).thenReturn(Optional.of(sender));
+        when(messageSafetyService.assess(eq("contact me @offplatform")))
+                .thenReturn(new MessageSafetyService.MessageSafetyAssessment(
+                        "contact me @offplatform",
+                        java.util.Set.of("SOCIAL_MEDIA_HANDLE"),
+                        true
+                ));
+
+        assertThrows(BadRequestException.class,
+                () -> messageService.send(conversationId, senderId, "contact me @offplatform", MessageType.TEXT, null));
+
         verify(messageRepository, never()).save(any(Message.class));
     }
 }

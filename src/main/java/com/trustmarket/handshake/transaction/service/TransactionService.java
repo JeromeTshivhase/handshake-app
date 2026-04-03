@@ -13,6 +13,7 @@ import com.trustmarket.handshake.transaction.entity.Handshake;
 import com.trustmarket.handshake.transaction.entity.Transaction;
 import com.trustmarket.handshake.transaction.enums.HandshakeStatus;
 import com.trustmarket.handshake.transaction.enums.TransactionStatus;
+import com.trustmarket.handshake.transaction.enums.TransactionSystemAction;
 import com.trustmarket.handshake.transaction.repository.HandshakeRepository;
 import com.trustmarket.handshake.transaction.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
@@ -77,6 +78,8 @@ public class TransactionService {
     public void markPaymentPending(Transaction txn) {
         validateTransition(txn.getStatus(), TransactionStatus.PAYMENT_PENDING);
         txn.setStatus(TransactionStatus.PAYMENT_PENDING);
+        txn.setLastSystemAction(TransactionSystemAction.PAYMENT_INITIATED);
+        txn.setLastSystemActionAt(LocalDateTime.now());
         transactionRepository.save(txn);
     }
 
@@ -85,6 +88,8 @@ public class TransactionService {
         validateTransition(txn.getStatus(), TransactionStatus.ESCROW_HELD);
         txn.setStatus(TransactionStatus.ESCROW_HELD);
         txn.setEscrowHeldAt(LocalDateTime.now());
+        txn.setLastSystemAction(TransactionSystemAction.PAYMENT_COMPLETED);
+        txn.setLastSystemActionAt(LocalDateTime.now());
         transactionRepository.save(txn);
     }
 
@@ -104,6 +109,13 @@ public class TransactionService {
 
         validateTransition(txn.getStatus(), TransactionStatus.COMPLETED);
 
+        LocalDateTime now = LocalDateTime.now();
+        if (txn.getEscrowReleaseAt() != null && now.isBefore(txn.getEscrowReleaseAt())) {
+            throw new BadRequestException("Escrow hold is active until " + txn.getEscrowReleaseAt());
+        }
+        txn.setLastSystemAction(TransactionSystemAction.MANUAL_COMPLETED);
+        txn.setLastSystemActionAt(now);
+
         // Require OTP to be verified when a meetup exists for this handshake.
         meetupRepository.findByHandshake_Id(txn.getHandshake().getId())
                 .ifPresent(meetup -> {
@@ -113,8 +125,43 @@ public class TransactionService {
                     }
                 });
 
+        return finalizeCompletion(txn, now);
+    }
+
+    @Transactional
+    public boolean autoReleaseEscrowIfDue(UUID transactionId) {
+        Transaction txn = transactionRepository.findByIdWithDetails(transactionId)
+                .orElseThrow(() -> new NotFoundException("Transaction not found: " + transactionId));
+
+        if (txn.getStatus() != TransactionStatus.ESCROW_HELD) {
+            return false;
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        if (txn.getEscrowReleaseAt() != null && now.isBefore(txn.getEscrowReleaseAt())) {
+            return false;
+        }
+
+        // If meetup exists, do not auto-release before OTP flow marks meetup complete.
+        boolean meetupCompleteOrAbsent = meetupRepository.findByHandshake_Id(txn.getHandshake().getId())
+                .map(meetup -> meetup.getStatus() == MeetupStatus.COMPLETED)
+                .orElse(true);
+        if (!meetupCompleteOrAbsent) {
+            log.warn("Escrow release skipped for txn {} because meetup is not completed", txn.getId());
+            return false;
+        }
+
+        txn.setLastSystemAction(TransactionSystemAction.AUTO_RELEASED);
+        txn.setLastSystemActionAt(now);
+
+        Transaction completed = finalizeCompletion(txn, now);
+        notificationPublisher.publishEscrowReleased(completed);
+        return true;
+    }
+
+    private Transaction finalizeCompletion(Transaction txn, LocalDateTime completedAt) {
         txn.setStatus(TransactionStatus.COMPLETED);
-        txn.setCompletedAt(LocalDateTime.now());
+        txn.setCompletedAt(completedAt);
         txn = transactionRepository.save(txn);
 
         Listing listing = txn.getListing();
@@ -148,6 +195,8 @@ public class TransactionService {
 
         validateTransition(txn.getStatus(), TransactionStatus.DISPUTED);
         txn.setStatus(TransactionStatus.DISPUTED);
+        txn.setLastSystemAction(TransactionSystemAction.MANUALLY_DISPUTED);
+        txn.setLastSystemActionAt(LocalDateTime.now());
         transactionRepository.save(txn);
 
         if (reason != null && !reason.isBlank()) {
@@ -165,6 +214,8 @@ public class TransactionService {
                 .orElseThrow(() -> new NotFoundException("Transaction not found: " + transactionId));
 
         validateTransition(txn.getStatus(), TransactionStatus.REFUNDED);
+        txn.setLastSystemAction(TransactionSystemAction.ADMIN_REFUNDED);
+        txn.setLastSystemActionAt(LocalDateTime.now());
 
         // TODO: call PayFast refund API here before persisting REFUNDED status
         // payFastService.issueRefund(payment.getPaymentReference(), txn.getAmount());

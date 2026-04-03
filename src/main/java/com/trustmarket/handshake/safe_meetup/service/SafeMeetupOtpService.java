@@ -1,9 +1,5 @@
 package com.trustmarket.handshake.safe_meetup.service;
 
-import com.trustmarket.handshake.listing.entity.Listing;
-import com.trustmarket.handshake.listing.entity.ListingStatus;
-import com.trustmarket.handshake.listing.repository.ListingRepository;
-import com.trustmarket.handshake.notification.service.NotificationPublisher;
 import com.trustmarket.handshake.safe_meetup.dto.CheckinRequest;
 import com.trustmarket.handshake.safe_meetup.dto.OtpEnableResponse;
 import com.trustmarket.handshake.safe_meetup.entity.Meetup;
@@ -13,11 +9,10 @@ import com.trustmarket.handshake.shared.exception.BadRequestException;
 import com.trustmarket.handshake.shared.exception.ForbiddenException;
 import com.trustmarket.handshake.shared.exception.NotFoundException;
 import com.trustmarket.handshake.transaction.entity.Handshake;
-import com.trustmarket.handshake.transaction.entity.Transaction;
 import com.trustmarket.handshake.transaction.enums.HandshakeStatus;
-import com.trustmarket.handshake.transaction.enums.TransactionStatus;
 import com.trustmarket.handshake.transaction.repository.HandshakeRepository;
 import com.trustmarket.handshake.transaction.repository.TransactionRepository;
+import com.trustmarket.handshake.transaction.service.TransactionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -37,12 +32,11 @@ public class SafeMeetupOtpService {
     private final HandshakeRepository handshakeRepository;
     private final MeetupRepository meetupRepository;
     private final TransactionRepository transactionRepository;
-    private final ListingRepository listingRepository;
     private final MeetupValidationService validationService;
     private final OtpService otpService;
     private final OtpRedisStore otpRedisStore;
     private final OtpRevealCryptoService otpRevealCryptoService;
-    private final NotificationPublisher notificationPublisher;
+    private final TransactionService transactionService;
 
     @Value("${otp.expires-minutes:10}")
     private long otpExpiresMinutes;
@@ -247,27 +241,14 @@ public class SafeMeetupOtpService {
         handshake.setOtpFailedAttempts(0);
         handshake.setOtpLockedUntil(null);
         handshake.setOtpRevealCiphertext(null);
-        handshake.setStatus(HandshakeStatus.COMPLETED);
         handshakeRepository.save(handshake);
 
         otpRedisStore.delete(handshakeId);
 
-        Transaction txn = transactionRepository.findByHandshake_Id(handshakeId)
+        var txn = transactionRepository.findByHandshake_Id(handshakeId)
                 .orElseThrow(() -> new BadRequestException("Transaction not found for handshake"));
 
-        if (txn.getStatus() != TransactionStatus.ESCROW_HELD) {
-            throw new BadRequestException("Transaction must be ESCROW_HELD to complete via OTP");
-        }
-
-        txn.setStatus(TransactionStatus.COMPLETED);
-        txn.setCompletedAt(verifiedAt);
-        transactionRepository.save(txn);
-
-        Listing listing = txn.getListing();
-        listing.setStatus(ListingStatus.SOLD);
-        listingRepository.save(listing);
-
-        notificationPublisher.publishTransactionCompleted(txn);
+        transactionService.complete(txn.getId(), handshake.getBuyer().getId());
     }
 
     @Transactional

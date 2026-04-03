@@ -82,11 +82,12 @@ payfast:
   merchant-key: ${PAYFAST_MERCHANT_KEY:dyun7jo0pqesu}
   passphrase: ${PAYFAST_PASSPHRASE:sslsllyghjwuwi8786gw}
   mode: ${PAYFAST_MODE:sandbox}
-  return-url: ${PAYFAST_RETURN_URL:${APP_DOMAIN:http://localhost:8080}/payment/success}
-  cancel-url: ${PAYFAST_CANCEL_URL:${APP_DOMAIN:http://localhost:8080}/payment/cancel}
-  notify-url: ${PAYFAST_NOTIFY_URL:${APP_DOMAIN:http://localhost:8080}/api/payments/payfast/notify}
+  return-url: ${PAYFAST_RETURN_URL:${APP_DOMAIN:https://overintense-unrelatedly-lilly.ngrok-free.dev}/payment/success}
+  cancel-url: ${PAYFAST_CANCEL_URL:${APP_DOMAIN:https://overintense-unrelatedly-lilly.ngrok-free.dev}/payment/cancel}
+  notify-url: ${PAYFAST_NOTIFY_URL:${APP_DOMAIN:https://overintense-unrelatedly-lilly.ngrok-free.dev}/api/payments/payfast/notify}
   # Comma-separated CIDR ranges that PayFast uses to POST ITN notifications.
-  allowed-ips: ${PAYFAST_ALLOWED_IPS:197.97.145.144/28,196.33.227.224/28,41.74.179.192/27}
+  # Include all currently published PayFast source ranges plus single host 144.126.193.139.
+  allowed-ips: ${PAYFAST_ALLOWED_IPS:197.97.145.144/28,41.74.179.192/27,102.216.36.0/28,102.216.36.128/28,144.126.193.139}
   # Set to false in development / sandbox to bypass IP check.
   ip-check-enabled: ${PAYFAST_IP_CHECK_ENABLED:true}
 
@@ -111,6 +112,24 @@ app:
 handshake:
   pending-expiry-hours: ${HANDSHAKE_PENDING_EXPIRY_HOURS:48}
   accepted-unpaid-expiry-hours: ${HANDSHAKE_ACCEPTED_UNPAID_EXPIRY_HOURS:24}
+  min-expiry-lead-seconds: ${HANDSHAKE_MIN_EXPIRY_LEAD_SECONDS:30}
+  expiry-grace-seconds: ${HANDSHAKE_EXPIRY_GRACE_SECONDS:30}
+
+escrow:
+  trust:
+    thresholds:
+      trusted-score: ${ESCROW_TRUSTED_SCORE_THRESHOLD:80}
+      verified-score: ${ESCROW_VERIFIED_SCORE_THRESHOLD:60}
+      standard-score: ${ESCROW_STANDARD_SCORE_THRESHOLD:40}
+      limited-score: ${ESCROW_LIMITED_SCORE_THRESHOLD:20}
+      high-value: ${ESCROW_HIGH_VALUE_THRESHOLD:5000}
+    hold-hours:
+      trusted: ${ESCROW_TRUSTED_HOLD_HOURS:0}
+      verified: ${ESCROW_VERIFIED_HOLD_HOURS:24}
+      standard: ${ESCROW_STANDARD_HOLD_HOURS:48}
+      limited: ${ESCROW_LIMITED_HOLD_HOURS:168}
+      restricted: ${ESCROW_RESTRICTED_HOLD_HOURS:336}
+    high-value-extra-hold-hours: ${ESCROW_HIGH_VALUE_EXTRA_HOLD_HOURS:24}
 
 otp:
   expires-minutes: ${SAFE_MEETUP_OTP_EXPIRES_MINUTES:10}
@@ -154,6 +173,11 @@ messaging:
   preview-length: ${APP_MESSAGING_PREVIEW_LENGTH:100}
   rate-limit:
     messages-per-minute: ${APP_MESSAGING_MESSAGES_PER_MINUTE:30}
+  safety:
+    mode: ${APP_MESSAGING_SAFETY_MODE:warn}
+    sanitize-content: ${APP_MESSAGING_SANITIZE_CONTENT:true}
+    block-social-handles: ${APP_MESSAGING_BLOCK_SOCIAL_HANDLES:false}
+    block-phone-numbers: ${APP_MESSAGING_BLOCK_PHONE_NUMBERS:false}
   email:
     enabled: ${APP_MESSAGING_EMAIL_ENABLED:true}
     from: ${APP_MESSAGING_EMAIL_FROM:no-reply@handshake.local}
