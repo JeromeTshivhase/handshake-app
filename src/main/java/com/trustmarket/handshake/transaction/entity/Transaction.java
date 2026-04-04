@@ -4,7 +4,6 @@ import com.trustmarket.handshake.listing.entity.Listing;
 import com.trustmarket.handshake.transaction.enums.Currency;
 import com.trustmarket.handshake.transaction.enums.TransactionStatus;
 import com.trustmarket.handshake.user.entity.User;
-import com.trustmarket.handshake.transaction.enums.TransactionSystemAction;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -13,6 +12,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
+import com.trustmarket.handshake.transaction.enums.TransactionSystemAction;
 
 @Entity
 @Table(name = "txn", indexes = {
@@ -63,18 +63,8 @@ public class Transaction {
     @Column(name = "escrow_held_at")
     private LocalDateTime escrowHeldAt;
 
-    @Column(name = "escrow_release_at")
-    private LocalDateTime escrowReleaseAt;
-
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "last_system_action", length = 30)
-    private TransactionSystemAction lastSystemAction;
-
-    @Column(name = "last_system_action_at")
-    private LocalDateTime lastSystemActionAt;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -83,4 +73,16 @@ public class Transaction {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    // When an escrow hold expires (if set) the system may auto-release funds. Nullable.
+    @Column(name = "escrow_release_at")
+    private LocalDateTime escrowReleaseAt;
+
+    // Track the last system-level action applied to this transaction (e.g. AUTO_RELEASED)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "last_system_action", length = 50)
+    private TransactionSystemAction lastSystemAction;
+
+    @Column(name = "last_system_action_at")
+    private LocalDateTime lastSystemActionAt;
 }
