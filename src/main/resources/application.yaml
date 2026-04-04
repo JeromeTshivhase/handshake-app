@@ -74,6 +74,11 @@ spring:
       password: ${REDIS_PASSWORD}
       timeout: ${REDIS_TIMEOUT_MS:2000}
 
+  jackson:
+    time-zone: ${APP_TIMEZONE:UTC}
+    serialization:
+      write-dates-as-timestamps: false
+
 # =========================
 # PayFast
 # =========================
