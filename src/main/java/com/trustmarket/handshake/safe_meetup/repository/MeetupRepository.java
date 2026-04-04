@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -28,6 +29,9 @@ public interface MeetupRepository extends JpaRepository<Meetup, UUID> {
           AND m.scheduledTime < :cutoff
         """)
     int expireMeetupsByTime(@Param("cutoff") LocalDateTime cutoff, @Param("newStatus") MeetupStatus newStatus);
+
+    // Fetch candidate meetups for time-based expiry so the job can apply per-meetup timeWindowMinutes logic
+    List<Meetup> findByStatusInAndScheduledTimeLessThan(List<MeetupStatus> statuses, LocalDateTime cutoff);
 
     @Modifying
     @Query("""
