@@ -2,8 +2,8 @@ package com.trustmarket.handshake.messaging.ws;
 
 import com.trustmarket.handshake.messaging.service.MessageService;
 import com.trustmarket.handshake.messaging.service.TypingIndicatorService;
-import com.trustmarket.handshake.messaging.ws.dto.WsSendMessageRequest;
 import com.trustmarket.handshake.messaging.ws.dto.WsTypingIndicatorRequest;
+import com.trustmarket.handshake.messaging.ws.dto.WsSendMessageRequest;
 import com.trustmarket.handshake.shared.exception.BadRequestException;
 import com.trustmarket.handshake.shared.security.AuthUtils;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +14,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 
 import java.time.Instant;
+import java.util.UUID;
 
 @Slf4j
 @Controller
@@ -57,7 +58,7 @@ public class ChatWsController {
         if (req == null || req.getConversationId() == null) {
             throw new BadRequestException("conversationId is required");
         }
-        var senderId = AuthUtils.userId(auth);
+        UUID senderId = AuthUtils.userId(auth);
         typingIndicatorService.publishTyping(req.getConversationId(), senderId, req.isTyping());
     }
 }

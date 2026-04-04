@@ -200,5 +200,48 @@ class ListingServiceTest {
         assertEquals(ListingStatus.INACTIVE, listing.getStatus());
         verify(listingRepository).save(listing);
     }
+
+    @Test
+    void imagesAreReturnedForInactiveListing() {
+        storedImages.add(ListingImage.builder()
+                .id(UUID.randomUUID())
+                .listing(listing)
+                .url("https://example.com/listings/inactive-one.jpg")
+                .position(0)
+                .build());
+        storedImages.add(ListingImage.builder()
+                .id(UUID.randomUUID())
+                .listing(listing)
+                .url("https://example.com/listings/inactive-two.jpg")
+                .position(1)
+                .build());
+
+        listing.setStatus(ListingStatus.INACTIVE);
+        when(listingRepository.findById(listing.getId())).thenReturn(Optional.of(listing));
+
+        ListingResponse resp = listingService.get(listing.getId());
+
+        assertEquals(List.of(
+                "https://example.com/listings/inactive-one.jpg",
+                "https://example.com/listings/inactive-two.jpg"
+        ), resp.getImageUrls());
+    }
+
+    @Test
+    void imagesAreReturnedForPendingPaymentListing() {
+        storedImages.add(ListingImage.builder()
+                .id(UUID.randomUUID())
+                .listing(listing)
+                .url("https://example.com/listings/pending-one.jpg")
+                .position(0)
+                .build());
+
+        listing.setStatus(ListingStatus.PENDING_PAYMENT);
+        when(listingRepository.findById(listing.getId())).thenReturn(Optional.of(listing));
+
+        ListingResponse resp = listingService.get(listing.getId());
+
+        assertEquals(List.of("https://example.com/listings/pending-one.jpg"), resp.getImageUrls());
+    }
 }
 

@@ -175,10 +175,11 @@ public class ListingService {
         User seller = listing.getSeller();
         boolean isActive = listing.getStatus() == ListingStatus.ACTIVE;
 
-        List<String> images = isActive
-                ? listingImageRepository.findByListing_IdOrderByPositionAsc(listing.getId())
-                .stream().map(ListingImage::getUrl).toList()
-                : Collections.emptyList();
+        // Always load stored image URLs for a listing so the frontend can decide how to display
+        // them (placeholders are a frontend concern). Previously images were hidden for
+        // non-ACTIVE listings which caused images to be lost during handshake flows.
+        List<String> images = listingImageRepository.findByListing_IdOrderByPositionAsc(listing.getId())
+                .stream().map(ListingImage::getUrl).toList();
 
         return ListingResponse.builder()
                 .id(listing.getId())

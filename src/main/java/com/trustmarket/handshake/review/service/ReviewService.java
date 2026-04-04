@@ -11,7 +11,6 @@ import com.trustmarket.handshake.transaction.enums.TransactionStatus;
 import com.trustmarket.handshake.transaction.repository.TransactionRepository;
 import com.trustmarket.handshake.user.entity.User;
 import com.trustmarket.handshake.user.repository.UserRepository;
-import com.trustmarket.handshake.user.service.TrustScoreService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
@@ -26,7 +25,6 @@ public class ReviewService {
     private final ReviewRepository reviewRepository;
     private final TransactionRepository transactionRepository;
     private final UserRepository userRepository;
-    private final TrustScoreService trustScoreService;
 
     @Transactional
     public Review create(UUID reviewerId, CreateReviewRequest req) {
@@ -77,8 +75,11 @@ public class ReviewService {
         reviewee.setRatingCount(newCount);
         reviewee.setRatingAverage(newAvg);
 
+        // simple trust score placeholder (we’ll do real scoring later)
+        int base = (int) Math.round(newAvg * 20); // 1..5 -> 20..100
+        reviewee.setTrustScore(Math.max(reviewee.getTrustScore(), base));
+
         userRepository.save(reviewee);
-        trustScoreService.recalculateAndSave(reviewee);
 
         return review;
     }

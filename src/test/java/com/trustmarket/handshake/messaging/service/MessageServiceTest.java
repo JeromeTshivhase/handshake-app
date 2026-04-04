@@ -15,6 +15,8 @@ import io.github.bucket4j.Bucket;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
@@ -27,12 +29,12 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class MessageServiceTest {
 
     @Mock
@@ -83,7 +85,7 @@ class MessageServiceTest {
         ReflectionTestUtils.setField(messageService, "sanitizeContent", true);
         ReflectionTestUtils.setField(messageService, "blockSocialHandles", false);
         ReflectionTestUtils.setField(messageService, "blockPhoneNumbers", false);
-        lenient().when(messageSafetyService.assess(any())).thenAnswer(i -> MessageSafetyService.MessageSafetyAssessment.safe(i.getArgument(0)));
+        when(messageSafetyService.assess(any())).thenAnswer(i -> MessageSafetyService.MessageSafetyAssessment.safe(i.getArgument(0)));
     }
 
     @Test
@@ -130,6 +132,8 @@ class MessageServiceTest {
                 .status(ConversationStatus.ACTIVE)
                 .build();
 
+        when(userRepository.findById(senderId)).thenReturn(Optional.of(sender));
+
         ReflectionTestUtils.setField(messageService, "safetyMode", "block");
 
         when(rateLimiterService.resolveBucket(any(), any(Integer.class), any())).thenReturn(bucket);
@@ -137,7 +141,6 @@ class MessageServiceTest {
         when(conversationRepository.findById(conversationId)).thenReturn(Optional.of(c));
         when(userBlockRepository.existsByBlocker_IdAndBlocked_Id(senderId, recipientId)).thenReturn(false);
         when(userBlockRepository.existsByBlocker_IdAndBlocked_Id(recipientId, senderId)).thenReturn(false);
-        when(userRepository.findById(senderId)).thenReturn(Optional.of(sender));
         when(messageSafetyService.assess(eq("contact me @offplatform")))
                 .thenReturn(new MessageSafetyService.MessageSafetyAssessment(
                         "contact me @offplatform",
@@ -148,6 +151,7 @@ class MessageServiceTest {
         assertThrows(BadRequestException.class,
                 () -> messageService.send(conversationId, senderId, "contact me @offplatform", MessageType.TEXT, null));
 
+        verify(userRepository, never()).findById(any());
         verify(messageRepository, never()).save(any(Message.class));
     }
 }

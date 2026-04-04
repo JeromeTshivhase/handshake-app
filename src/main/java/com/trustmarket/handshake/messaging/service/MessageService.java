@@ -114,9 +114,6 @@ public class MessageService {
             throw new BadRequestException("Messaging is blocked between these users");
         }
 
-        User sender = userRepository.findById(senderId)
-                .orElseThrow(() -> new NotFoundException("Sender not found: " + senderId));
-
         String normalized = content.trim();
         MessageSafetyService.MessageSafetyAssessment safety = messageSafetyService.assess(normalized);
         String effectiveContent = sanitizeContent ? safety.sanitizedContent() : normalized;
@@ -127,6 +124,9 @@ public class MessageService {
         if (!safety.flags().isEmpty()) {
             log.warn("Message safety flags for user {} conversation {}: {}", senderId, conversationId, safety.flags());
         }
+
+        User sender = userRepository.findById(senderId)
+                .orElseThrow(() -> new NotFoundException("Sender not found: " + senderId));
 
         Message msg = Message.builder()
                 .conversation(c)
@@ -156,13 +156,6 @@ public class MessageService {
         return MessageResponse.fromEntity(msg);
     }
 
-    private Set<MessageDeliveryChannel> normalizeChannels(Set<MessageDeliveryChannel> channels) {
-        if (channels == null || channels.isEmpty()) {
-            return EnumSet.of(MessageDeliveryChannel.IN_APP);
-        }
-        return EnumSet.copyOf(channels);
-    }
-
     private boolean shouldBlock(MessageSafetyService.MessageSafetyAssessment safety) {
         if (safety.highRisk()) {
             return true;
@@ -171,6 +164,13 @@ public class MessageService {
             return true;
         }
         return blockPhoneNumbers && safety.hasFlag("PHONE_NUMBER");
+    }
+
+    private Set<MessageDeliveryChannel> normalizeChannels(Set<MessageDeliveryChannel> channels) {
+        if (channels == null || channels.isEmpty()) {
+            return EnumSet.of(MessageDeliveryChannel.IN_APP);
+        }
+        return EnumSet.copyOf(channels);
     }
 
     @Transactional(readOnly = true)
