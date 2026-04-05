@@ -4,6 +4,7 @@ import com.trustmarket.handshake.safe_meetup.entity.MeetupStatus;
 import com.trustmarket.handshake.safe_meetup.repository.MeetupRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,7 +18,12 @@ public class MeetupCleanupJob {
 
     private final MeetupRepository meetupRepository;
 
-    @Scheduled(cron = "0 */15 * * * *")
+    // Cron is configurable to permit faster expiry in deployments that need it.
+    // Default: every minute for prompt expiry ("0 * * * * *").
+    @Value("${meetup.cleanup.cron:0 * * * * *}")
+    private String cleanupCron;
+
+    @Scheduled(cron = "${meetup.cleanup.cron:0 * * * * *}")
     @Transactional
     public void expireOldMeetups() {
         LocalDateTime now = LocalDateTime.now();

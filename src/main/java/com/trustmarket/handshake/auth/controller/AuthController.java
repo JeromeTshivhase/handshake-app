@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.UUID;
+import org.springframework.security.core.Authentication;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -72,59 +73,83 @@ public class AuthController {
 
 
     @PostMapping("/change-password")
-    public ApiResponse<Void> changePassword(@Valid @RequestBody ChangePasswordRequest req, @RequestHeader("Authorization") String authHeader) {
-        UUID userId = extractUserIdFromJwt(authHeader);
+    public ApiResponse<Void> changePassword(@Valid @RequestBody ChangePasswordRequest req, Authentication authentication) {
+        UUID userId = extractUserId(authentication);
         authService.changePassword(userId, req);
         return ApiResponse.ok(null);
     }
 
 
     @PostMapping("/2fa/setup")
-    public ApiResponse<TwoFaSetupResponse> setup2fa(@Valid @RequestBody TwoFaSetupRequest req, @RequestHeader("Authorization") String authHeader) {
-        UUID userId = extractUserIdFromJwt(authHeader);
+    public ApiResponse<TwoFaSetupResponse> setup2fa(@Valid @RequestBody TwoFaSetupRequest req, Authentication authentication) {
+        UUID userId = extractUserId(authentication);
         return ApiResponse.ok(authService.setup2fa(userId, req));
     }
 
     @PostMapping("/2fa/enable")
-    public ApiResponse<java.util.List<String>> enable2fa(@Valid @RequestBody TwoFaEnableRequest req, @RequestHeader("Authorization") String authHeader) {
-        UUID userId = extractUserIdFromJwt(authHeader);
+    public ApiResponse<java.util.List<String>> enable2fa(@Valid @RequestBody TwoFaEnableRequest req, Authentication authentication) {
+        UUID userId = extractUserId(authentication);
         return ApiResponse.ok(authService.enable2fa(userId, req));
     }
 
     @PostMapping("/2fa/disable")
-    public ApiResponse<Void> disable2fa(@Valid @RequestBody PasswordRequest req, @RequestHeader("Authorization") String authHeader) {
-        UUID userId = extractUserIdFromJwt(authHeader);
+    public ApiResponse<Void> disable2fa(@Valid @RequestBody PasswordRequest req, Authentication authentication) {
+        UUID userId = extractUserId(authentication);
         authService.disable2fa(userId, req.getPassword());
         return ApiResponse.ok(null);
     }
 
 
     @PostMapping("/2fa/verify")
-    public ApiResponse<Void> verify2fa(@Valid @RequestBody TwoFaVerifyRequest req, @RequestHeader("Authorization") String authHeader) {
-        UUID userId = extractUserIdFromJwt(authHeader);
+    public ApiResponse<Void> verify2fa(@Valid @RequestBody TwoFaVerifyRequest req, Authentication authentication) {
+        UUID userId = extractUserId(authentication);
         authService.verify2fa(userId, req);
         return ApiResponse.ok(null);
     }
 
 
     @GetMapping("/2fa/status")
-    public ApiResponse<TwoFaStatusResponse> get2faStatus(@RequestHeader("Authorization") String authHeader) {
-        UUID userId = extractUserIdFromJwt(authHeader);
+    public ApiResponse<TwoFaStatusResponse> get2faStatus(Authentication authentication) {
+        UUID userId = extractUserId(authentication);
         return ApiResponse.ok(authService.get2faStatus(userId));
     }
 
     @PostMapping("/2fa/recovery/regenerate")
     public ApiResponse<java.util.List<String>> regenerateRecoveryCodes(@Valid @RequestBody VerificationCodeRequest req,
-                                                                       @RequestHeader("Authorization") String authHeader) {
-        UUID userId = extractUserIdFromJwt(authHeader);
+                                                                       Authentication authentication) {
+        UUID userId = extractUserId(authentication);
         return ApiResponse.ok(authService.regenerateRecoveryCodes(userId, req.getCode()));
     }
+    private UUID extractUserId(Authentication authentication) {
+        if (authentication == null || authentication.getPrincipal() == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Missing or invalid authentication");
+        }
 
-    private UUID extractUserIdFromJwt(String authHeader) {
-        String token = authHeader.replace("Bearer ", "");
-        Claims claims = jwtService.parse(token);
-        String userId = (String) claims.get("userId");
-        return UUID.fromString(userId);
+        Object p = authentication.getPrincipal();
+        if (p instanceof UUID) {
+            return (UUID) p;
+        }
+        if (p instanceof String) {
+            try {
+                return UUID.fromString((String) p);
+            } catch (IllegalArgumentException e) {
+                // fallthrough
+            }
+        }
+
+        // As a last resort attempt to parse from JWT service if available
+        try {
+            // some authentication setups may set principal to a JWT token string
+            if (p instanceof String) {
+                String token = ((String) p).replace("Bearer ", "");
+                Claims claims = jwtService.parse(token);
+                String userId = (String) claims.get("userId");
+                return UUID.fromString(userId);
+            }
+        } catch (Exception ignored) {
+        }
+
+        throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unable to resolve user id from authentication");
     }
     // ...existing code...
 }
