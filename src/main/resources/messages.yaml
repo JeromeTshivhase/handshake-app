@@ -25,3 +25,29 @@ notification:
     reset: "Password Reset Request"
     reset_body: "You requested a password reset. Use the following link to reset your password: {0}\nIf you did not request this, please ignore this email."
 
+  handshake:
+    request: "New handshake request"
+    request_body: "A buyer has requested to buy '{0}'."
+    accepted: "Handshake accepted"
+    accepted_body: "Your handshake request for '{0}' was accepted."
+    rejected: "Handshake rejected"
+    rejected_body: "Your handshake request for '{0}' was rejected."
+    cancelled: "Handshake cancelled"
+    cancelled_body: "The handshake for '{0}' has been cancelled."
+
+  meetup:
+    scheduled: "Meetup scheduled"
+    scheduled_body: "A meetup has been scheduled at '{0}'."
+
+  otp:
+    enabled: "OTP enabled"
+    enabled_body: "OTP has been enabled for your meetup at '{0}'."
+    verified: "OTP verified"
+    verified_body: "OTP verification succeeded for '{0}'."
+
+  escrow:
+    released: "Escrow funds released"
+    released_body: "Escrow funds for '{0}' have been released to the seller."
+    released_seller: "Escrow released to you"
+    released_seller_body: "Escrow for your listing '{0}' has been released to your account."
+
