@@ -3,8 +3,8 @@ package com.trustmarket.handshake.safe_meetup.job;
 import com.trustmarket.handshake.safe_meetup.entity.MeetupStatus;
 import com.trustmarket.handshake.safe_meetup.repository.MeetupRepository;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,7 +17,6 @@ import java.time.LocalDateTime;
 public class MeetupCleanupJob {
 
     private final MeetupRepository meetupRepository;
-
     // Cron is configurable to permit faster expiry in deployments that need it.
     // Default: every minute for prompt expiry ("0 * * * * *").
     @Value("${meetup.cleanup.cron:0 * * * * *}")
