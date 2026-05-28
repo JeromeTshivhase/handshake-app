@@ -50,7 +50,14 @@ public class AuthController {
     }
 
     @PostMapping("/refresh")
-    public ApiResponse<AuthResponse> refresh(@Valid @RequestBody RefreshRequest req) {
+    public ApiResponse<AuthResponse> refresh(@Valid @RequestBody RefreshRequest req,
+                                             @RequestHeader(value = "X-Forwarded-For", required = false) String xForwardedFor,
+                                             @RequestHeader(value = "Remote_Addr", required = false) String remoteAddr) {
+        String ip = xForwardedFor != null ? xForwardedFor : remoteAddr;
+        Bucket bucket = rateLimiterService.resolveBucket("refresh:" + (ip != null ? ip : "unknown"));
+        if (!bucket.tryConsume(1)) {
+            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Too many token refresh attempts. Please try again later.");
+        }
         return ApiResponse.ok(authService.refresh(req));
     }
 

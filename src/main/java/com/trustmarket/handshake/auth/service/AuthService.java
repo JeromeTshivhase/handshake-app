@@ -175,18 +175,19 @@ public class AuthService {
     
     // Forgot password: generate and email a reset token
     public void forgotPassword(com.trustmarket.handshake.auth.dto.ForgotPasswordRequest req) {
-        User user = userRepository.findByEmailIgnoreCase(req.getEmail())
-                .orElseThrow(() -> new BadRequestException("No user found with that email address"));
-        passwordResetTokenRepository.deleteByUserId(user.getId());
-        String token = java.util.UUID.randomUUID().toString();
-        PasswordResetToken resetToken = PasswordResetToken.builder()
-                .user(user)
-                .token(token)
-                .expiresAt(java.time.LocalDateTime.now().plusHours(2))
-                .used(false)
-                .build();
-        passwordResetTokenRepository.save(resetToken);
-        notificationService.sendPasswordReset(user, token);
+        // Always return silently — never reveal whether the email exists (prevents enumeration)
+        userRepository.findByEmailIgnoreCase(req.getEmail()).ifPresent(user -> {
+            passwordResetTokenRepository.deleteByUserId(user.getId());
+            String token = java.util.UUID.randomUUID().toString();
+            PasswordResetToken resetToken = PasswordResetToken.builder()
+                    .user(user)
+                    .token(token)
+                    .expiresAt(java.time.LocalDateTime.now().plusHours(2))
+                    .used(false)
+                    .build();
+            passwordResetTokenRepository.save(resetToken);
+            notificationService.sendPasswordReset(user, token);
+        });
     }
 
     // Reset password using token
