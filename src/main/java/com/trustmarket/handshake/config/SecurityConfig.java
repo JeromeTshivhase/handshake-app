@@ -46,7 +46,13 @@ public class SecurityConfig {
                         // PayFast ITN must be public
                         .requestMatchers("/api/payments/payfast/notify").permitAll()
 
-                        // Swagger/OpenAPI
+                        // Health — public for load-balancer probes only
+                        .requestMatchers("/actuator/health").permitAll()
+                        // All other actuator endpoints require ADMIN
+                        .requestMatchers("/actuator/**").hasRole("ADMIN")
+
+                        // Swagger/OpenAPI — only accessible when SWAGGER_ENABLED=true (springdoc disables
+                        // the endpoints via config, but we also restrict here as defence-in-depth)
                         .requestMatchers(
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
@@ -55,10 +61,7 @@ public class SecurityConfig {
                                 "/v3/api-docs/swagger-config",
                                 "/swagger-resources/**",
                                 "/webjars/**"
-                        ).permitAll()
-
-                        // Health
-                        .requestMatchers("/actuator/**").permitAll()
+                        ).hasRole("ADMIN")
 
                         // Public browsing
                         .requestMatchers(HttpMethod.GET, "/api/listings/**", "/api/categories/**").permitAll()
