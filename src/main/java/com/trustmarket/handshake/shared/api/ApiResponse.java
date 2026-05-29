@@ -18,10 +18,18 @@ public class ApiResponse<T> {
     private ApiError error;
 
     public static <T> ApiResponse<T> ok(T data) {
-        return ApiResponse.<T>builder().success(true).data(data).build();
+        ApiResponse<T> r = new ApiResponse<>();
+        r.timestamp = Instant.now();
+        r.success = true;
+        r.data = data;
+        return r;
     }
 
     public static <T> ApiResponse<T> fail(ApiError error) {
-        return ApiResponse.<T>builder().success(false).error(error).build();
+        ApiResponse<T> r = new ApiResponse<>();
+        r.timestamp = Instant.now();
+        r.success = false;
+        r.error = error;
+        return r;
     }
 }

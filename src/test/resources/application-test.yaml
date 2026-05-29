@@ -17,11 +17,23 @@ jwt:
   access-expiration-seconds: 3600
   refresh-expiration-seconds: 1209600
 
+payfast:
+  merchant-id: test-merchant-id
+  merchant-key: test-merchant-key
+  passphrase:
+  mode: sandbox
+  return-url: http://localhost/payment/success
+  cancel-url: http://localhost/payment/cancel
+  notify-url: http://localhost/api/payments/payfast/notify
+
 app:
+  redis:
+    enabled: false
+  otp:
+    reveal-key-b64: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
   messaging:
     email:
       enabled: false
   notifications:
     email:
       enabled: false
-

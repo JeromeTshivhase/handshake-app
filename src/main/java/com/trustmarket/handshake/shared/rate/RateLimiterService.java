@@ -32,7 +32,7 @@ public class RateLimiterService {
     private static final Duration DEFAULT_PERIOD = Duration.ofMinutes(1);
 
     private final boolean redisEnabled;
-    private final LettuceBasedProxyManager<byte[]> proxyManager;
+    private final LettuceBasedProxyManager proxyManager;
 
     // Fallback for when Redis is disabled
     private final Map<String, Bucket> localBuckets = new ConcurrentHashMap<>();

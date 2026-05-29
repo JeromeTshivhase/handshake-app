@@ -1,6 +1,7 @@
 package com.trustmarket.handshake.user.service;
 
 import com.trustmarket.handshake.user.entity.User;
+import com.trustmarket.handshake.user.sms.SmsSender;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
@@ -18,6 +19,7 @@ import java.time.temporal.ChronoUnit;
 public class VerificationNotificationService {
 
     private final ObjectProvider<JavaMailSender> mailSenderProvider;
+    private final ObjectProvider<SmsSender> smsSenderProvider;
 
     @Value("${app.verification.email.enabled:true}")
     private boolean emailEnabled;
@@ -25,7 +27,7 @@ public class VerificationNotificationService {
     @Value("${app.verification.email.from:${app.messaging.email.from:no-reply@handshake.local}}")
     private String fromAddress;
 
-    @Value("${app.verification.sms.enabled:false}")
+    @Value("${app.verification.sms.enabled:${verification.sms.enabled:false}}")
     private boolean smsEnabled;
 
     public void sendEmailOtp(User user, String email, String otp, LocalDateTime expiresAt) {
@@ -56,14 +58,21 @@ public class VerificationNotificationService {
     }
 
     public void sendPhoneOtp(User user, String phone, String otp, LocalDateTime expiresAt) {
-        if (smsEnabled) {
-            log.info("SMS verification OTP dispatch requested for user {} to {} (provider not configured in this project yet)", user.getId(), phone);
+        if (!smsEnabled) {
+            log.info("Phone verification OTP generated for user {}. SMS delivery is disabled; configure app.verification.sms.enabled and an SMS provider to send codes. Target={}, expiresAt={}",
+                    user.getId(), maskPhone(phone), expiresAt);
+            log.debug("Phone verification OTP for user {} is {}", user.getId(), otp);
             return;
         }
 
-        log.info("Phone verification OTP generated for user {}. SMS delivery is disabled; configure app.verification.sms.enabled and an SMS provider to send codes. Target={}, expiresAt={}",
-                user.getId(), maskPhone(phone), expiresAt);
-        log.debug("Phone verification OTP for user {} is {}", user.getId(), otp);
+        SmsSender smsSender = smsSenderProvider.getIfAvailable();
+        if (smsSender == null) {
+            log.warn("Phone verification OTP generated for user {} but no SmsSender is configured. Target={}, expiresAt={}",
+                    user.getId(), maskPhone(phone), expiresAt);
+            return;
+        }
+
+        smsSender.sendSms(user, phone, buildSmsBody(otp, expiresAt));
     }
 
     private String buildEmailBody(User user, String otp, LocalDateTime expiresAt) {
@@ -83,5 +92,9 @@ public class VerificationNotificationService {
         }
         return "*".repeat(Math.max(0, phone.length() - 4)) + phone.substring(phone.length() - 4);
     }
-}
 
+    private String buildSmsBody(String otp, LocalDateTime expiresAt) {
+        long minutes = Math.max(1, ChronoUnit.MINUTES.between(LocalDateTime.now(), expiresAt));
+        return "Your Handshake verification code is " + otp + ". It expires in about " + minutes + " minute(s).";
+    }
+}
