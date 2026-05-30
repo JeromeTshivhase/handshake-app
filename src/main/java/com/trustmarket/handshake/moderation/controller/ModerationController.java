@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.data.domain.Page;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
@@ -32,6 +33,7 @@ public class ModerationController {
 
     // For now no admin auth gating here; later we restrict to ADMIN role
     @GetMapping(value = "/reports/open", produces = MediaType.APPLICATION_JSON_VALUE)
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "List open reports", operationId = "listOpenReports")
     public ApiResponse<Page<ReportResponse>> open(
             @RequestParam(defaultValue = "0") int page,
@@ -41,8 +43,8 @@ public class ModerationController {
     }
 
     // TODO: Restrict the following endpoints to ADMIN role only using @PreAuthorize or similar
-    // @PreAuthorize("hasRole('ADMIN')")
     @GetMapping(value = "/reports/all", produces = MediaType.APPLICATION_JSON_VALUE)
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "List all reports (admin only)", operationId = "listAllReports")
     public ApiResponse<Page<ReportResponse>> allReports(
             @RequestParam(defaultValue = "0") int page,
@@ -53,8 +55,8 @@ public class ModerationController {
     }
 
     // TODO: Add endpoints for admin actions (resolve, block user, etc.)
-    // @PreAuthorize("hasRole('ADMIN')")
     @PostMapping(value = "/reports/{id}/resolve", produces = MediaType.APPLICATION_JSON_VALUE)
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Resolve a report (admin only)", operationId = "resolveReport")
     public ApiResponse<Void> resolveReport(@PathVariable UUID id) {
         moderationService.resolveReport(id);
