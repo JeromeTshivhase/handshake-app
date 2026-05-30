@@ -43,6 +43,10 @@ public class SecurityConfig {
                         // Auth
                         .requestMatchers("/api/auth/**").permitAll()
 
+                        // Moderation report submission is authenticated; admin report management is restricted below.
+                        .requestMatchers(HttpMethod.POST, "/api/moderation/reports").authenticated()
+                        .requestMatchers("/api/moderation/reports/**").hasRole("ADMIN")
+
                         // PayFast ITN must be public
                         .requestMatchers("/api/payments/payfast/notify").permitAll()
 

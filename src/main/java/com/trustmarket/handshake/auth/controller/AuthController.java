@@ -9,6 +9,7 @@ import com.trustmarket.handshake.shared.security.UserPrincipal;
 import io.jsonwebtoken.Claims;
 import io.github.bucket4j.Bucket;
 import jakarta.validation.Valid;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
@@ -27,10 +28,8 @@ public class AuthController {
 
     @PostMapping("/register")
     public ApiResponse<AuthResponse> register(@Valid @RequestBody RegisterRequest req,
-                                              @RequestHeader(value = "X-Forwarded-For", required = false) String xForwardedFor,
-                                              @RequestHeader(value = "Remote_Addr", required = false) String remoteAddr) {
-        String ip = xForwardedFor != null ? xForwardedFor : remoteAddr;
-        Bucket bucket = rateLimiterService.resolveBucket("register:" + (ip != null ? ip : "unknown"));
+                                              HttpServletRequest request) {
+        Bucket bucket = rateLimiterService.resolveBucket("register:" + resolveClientIp(request));
         if (!bucket.tryConsume(1)) {
             throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Too many registration attempts. Please try again later.");
         }
@@ -39,10 +38,8 @@ public class AuthController {
 
     @PostMapping("/login")
     public ApiResponse<AuthResponse> login(@Valid @RequestBody LoginRequest req,
-                                           @RequestHeader(value = "X-Forwarded-For", required = false) String xForwardedFor,
-                                           @RequestHeader(value = "Remote_Addr", required = false) String remoteAddr) {
-        String ip = xForwardedFor != null ? xForwardedFor : remoteAddr;
-        Bucket bucket = rateLimiterService.resolveBucket("login:" + (ip != null ? ip : "unknown"));
+                                           HttpServletRequest request) {
+        Bucket bucket = rateLimiterService.resolveBucket("login:" + resolveClientIp(request));
         if (!bucket.tryConsume(1)) {
             throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Too many login attempts. Please try again later.");
         }
@@ -51,10 +48,8 @@ public class AuthController {
 
     @PostMapping("/refresh")
     public ApiResponse<AuthResponse> refresh(@Valid @RequestBody RefreshRequest req,
-                                             @RequestHeader(value = "X-Forwarded-For", required = false) String xForwardedFor,
-                                             @RequestHeader(value = "Remote_Addr", required = false) String remoteAddr) {
-        String ip = xForwardedFor != null ? xForwardedFor : remoteAddr;
-        Bucket bucket = rateLimiterService.resolveBucket("refresh:" + (ip != null ? ip : "unknown"));
+                                             HttpServletRequest request) {
+        Bucket bucket = rateLimiterService.resolveBucket("refresh:" + resolveClientIp(request));
         if (!bucket.tryConsume(1)) {
             throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Too many token refresh attempts. Please try again later.");
         }
@@ -63,10 +58,8 @@ public class AuthController {
 
     @PostMapping("/forgot-password")
     public ApiResponse<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest req,
-                                            @RequestHeader(value = "X-Forwarded-For", required = false) String xForwardedFor,
-                                            @RequestHeader(value = "Remote_Addr", required = false) String remoteAddr) {
-        String ip = xForwardedFor != null ? xForwardedFor : remoteAddr;
-        Bucket bucket = rateLimiterService.resolveBucket("forgot-password:" + (ip != null ? ip : "unknown"));
+                                            HttpServletRequest request) {
+        Bucket bucket = rateLimiterService.resolveBucket("forgot-password:" + resolveClientIp(request));
         if (!bucket.tryConsume(1)) {
             throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Too many password reset attempts. Please try again later.");
         }
@@ -76,10 +69,8 @@ public class AuthController {
 
     @PostMapping("/reset-password")
     public ApiResponse<Void> resetPassword(@Valid @RequestBody ResetPasswordRequest req,
-                                           @RequestHeader(value = "X-Forwarded-For", required = false) String xForwardedFor,
-                                           @RequestHeader(value = "Remote_Addr", required = false) String remoteAddr) {
-        String ip = xForwardedFor != null ? xForwardedFor : remoteAddr;
-        Bucket bucket = rateLimiterService.resolveBucket("reset-password:" + (ip != null ? ip : "unknown"));
+                                           HttpServletRequest request) {
+        Bucket bucket = rateLimiterService.resolveBucket("reset-password:" + resolveClientIp(request));
         if (!bucket.tryConsume(1)) {
             throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Too many password reset attempts. Please try again later.");
         }
@@ -168,5 +159,9 @@ public class AuthController {
         }
         throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unable to resolve user id from authentication");
     }
-}
 
+    private String resolveClientIp(HttpServletRequest request) {
+        String remoteAddr = request.getRemoteAddr();
+        return (remoteAddr == null || remoteAddr.isBlank()) ? "unknown" : remoteAddr;
+    }
+}
