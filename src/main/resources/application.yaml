@@ -113,6 +113,13 @@ app:
     base-url: ${APP_UPLOAD_BASE_URL:${APP_DOMAIN:}/uploads}
   http-cache:
     public-max-age-seconds: ${APP_HTTP_CACHE_PUBLIC_MAX_AGE_SECONDS:60}
+  # Optional: send email through Brevo's HTTPS API instead of SMTP (for hosts that block SMTP, e.g. Railway
+  # non-Pro plans). Active only when BREVO_API_KEY is set; sender must be verified in Brevo.
+  mail:
+    brevo:
+      api-key: ${BREVO_API_KEY:}
+      sender-email: ${BREVO_SENDER_EMAIL:${MAIL_FROM:}}
+      sender-name: ${BREVO_SENDER_NAME:Handshake}
 
 handshake:
   pending-expiry-hours: ${HANDSHAKE_PENDING_EXPIRY_HOURS:48}
