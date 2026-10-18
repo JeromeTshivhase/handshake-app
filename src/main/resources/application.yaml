@@ -101,6 +101,9 @@ payfast:
 # =========================
 app:
   domain: ${APP_DOMAIN:}
+  # Web frontend base URL for links in emails (e.g. password reset). Falls back to APP_DOMAIN when empty.
+  frontend-url: ${FRONTEND_URL:}
+  reset-password-path: ${APP_RESET_PASSWORD_PATH:/auth/reset-password}
   enforce-domain-in-prod: ${APP_ENFORCE_DOMAIN_IN_PROD:true}
   redis:
     enabled: ${REDIS_ENABLED:true}
