@@ -51,7 +51,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/payments/payfast/notify").permitAll()
 
                         // Health — public for load-balancer probes only
-                        .requestMatchers("/actuator/health").permitAll()
+                        .requestMatchers("/actuator/health", "/api/health").permitAll()
                         // All other actuator endpoints require ADMIN
                         .requestMatchers("/actuator/**").hasRole("ADMIN")
 
