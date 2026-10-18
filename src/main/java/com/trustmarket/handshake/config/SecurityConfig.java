@@ -4,6 +4,7 @@ import com.trustmarket.handshake.shared.security.JwtAuthenticationFilter;
 import com.trustmarket.handshake.shared.security.UserPrincipal;
 import com.trustmarket.handshake.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -31,8 +32,21 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final UserRepository userRepository;
 
+    // Mirrors springdoc.swagger-ui.enabled (driven by SWAGGER_ENABLED, default false).
+    @Value("${springdoc.swagger-ui.enabled:false}")
+    private boolean swaggerEnabled;
+
     @Bean
     SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        // When Swagger is switched on (staging / temporary inspection) the docs must be reachable from a
+        // browser, which cannot attach a JWT to page loads. When it is off this is a harmless placeholder
+        // path and the ADMIN-only rule below stays in force.
+        final String[] openSwaggerPaths = swaggerEnabled
+                ? new String[] {
+                        "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/v3/api-docs.yaml",
+                        "/v3/api-docs/swagger-config", "/swagger-resources/**", "/webjars/**" }
+                : new String[] { "/__swagger-disabled__" };
+
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .csrf(csrf -> csrf.disable())
@@ -55,8 +69,11 @@ public class SecurityConfig {
                         // All other actuator endpoints require ADMIN
                         .requestMatchers("/actuator/**").hasRole("ADMIN")
 
-                        // Swagger/OpenAPI — only accessible when SWAGGER_ENABLED=true (springdoc disables
-                        // the endpoints via config, but we also restrict here as defence-in-depth)
+                        // Swagger/OpenAPI — open only while SWAGGER_ENABLED=true
+                        .requestMatchers(openSwaggerPaths).permitAll()
+
+                        // Swagger/OpenAPI — otherwise ADMIN only (springdoc also disables the endpoints via
+                        // config; this is defence-in-depth)
                         .requestMatchers(
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
