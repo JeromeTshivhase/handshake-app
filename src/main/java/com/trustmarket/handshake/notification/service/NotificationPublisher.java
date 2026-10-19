@@ -216,6 +216,13 @@ public class NotificationPublisher {
     @Value("${app.domain:https://your-app-domain}")
     private String appDomain;
 
+    // Base URL of the web frontend, used for links in emails (APP_DOMAIN is the API host).
+    @Value("${app.frontend-url:}")
+    private String frontendUrl;
+
+    @Value("${app.reset-password-path:/auth/reset-password}")
+    private String resetPasswordPath;
+
     private static final Map<String, Object> yamlMessages;
     static {
         Yaml yaml = new Yaml();
@@ -391,7 +398,11 @@ public class NotificationPublisher {
     }
 
     public void publishPasswordReset(User user, String token) {
-        String resetLink = appDomain + "/reset-password?token=" + token;
+        String base = (frontendUrl != null && !frontendUrl.isBlank()) ? frontendUrl : appDomain;
+        if (base.endsWith("/")) {
+            base = base.substring(0, base.length() - 1);
+        }
+        String resetLink = base + resetPasswordPath + "?token=" + token;
         eventPublisher.publishEvent(new DomainNotificationEvent(
                 user.getId(),
                 NotificationEventType.PASSWORD_RESET_REQUESTED,

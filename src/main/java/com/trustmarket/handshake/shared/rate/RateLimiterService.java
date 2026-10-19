@@ -4,6 +4,7 @@ import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
 import io.github.bucket4j.BucketConfiguration;
 import io.github.bucket4j.Refill;
+import io.github.bucket4j.distributed.ExpirationAfterWriteStrategy;
 import io.github.bucket4j.redis.lettuce.cas.LettuceBasedProxyManager;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.api.StatefulRedisConnection;
@@ -54,7 +55,13 @@ public class RateLimiterService {
 
             RedisClient client = RedisClient.create(uri);
             StatefulRedisConnection<byte[], byte[]> connection = client.connect(ByteArrayCodec.INSTANCE);
-            this.proxyManager = LettuceBasedProxyManager.builderFor(connection).build();
+            // Bucket4j 7.x requires an expiration strategy for Redis-backed buckets, otherwise
+            // build() throws "expirationStrategy is not configured". Idle bucket keys expire
+            // once they would be full again (plus a 10-minute floor).
+            this.proxyManager = LettuceBasedProxyManager.builderFor(connection)
+                    .withExpirationStrategy(
+                            ExpirationAfterWriteStrategy.basedOnTimeForRefillingBucketUpToMax(Duration.ofMinutes(10)))
+                    .build();
             log.info("RateLimiterService: using Redis-backed rate limiting at {}:{}", host, port);
         } else {
             this.proxyManager = null;
