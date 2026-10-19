@@ -221,3 +221,7 @@ springdoc:
     enabled: ${SWAGGER_ENABLED:false}
   swagger-ui:
     enabled: ${SWAGGER_ENABLED:false}
+
+google:
+  # OAuth Web client ID from Google Cloud Console (enables "Continue with Google")
+  client-id: ${GOOGLE_CLIENT_ID:}
