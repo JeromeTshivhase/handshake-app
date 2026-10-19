@@ -42,6 +42,13 @@ public class PayFastService {
     @Value("${payfast.cancel-url}") private String cancelUrl;
     @Value("${payfast.notify-url}") private String notifyUrl;
     @Value("${payfast.mode:sandbox}") private String mode;
+    /** Ask PayFast to confirm each ITN really came from them (their documented step 4). Keep on. */
+    @Value("${payfast.server-validation-enabled:true}") private boolean serverValidationEnabled;
+
+    private static final String SANDBOX_VALIDATE = "https://sandbox.payfast.co.za/eng/query/validate";
+    private static final String LIVE_VALIDATE = "https://www.payfast.co.za/eng/query/validate";
+    private final java.net.http.HttpClient httpClient = java.net.http.HttpClient.newBuilder()
+            .connectTimeout(java.time.Duration.ofSeconds(5)).build();
 
     private static final String SANDBOX = "https://sandbox.payfast.co.za/eng/process";
     private static final String LIVE = "https://www.payfast.co.za/eng/process";
@@ -103,14 +110,57 @@ public class PayFastService {
             throw new BadRequestException("Missing required ITN fields");
         }
 
+        // 1. A signature is mandatory and must match. A missing signature is rejected, never skipped.
         String receivedSig = payload.get("signature");
-        if (receivedSig != null && !receivedSig.isBlank() && !verifySignature(rawBody, receivedSig)) {
-            log.warn("PayFast ITN signature mismatch for payment {}", paymentId);
+        if (receivedSig == null || receivedSig.isBlank() || !verifySignature(rawBody, receivedSig)) {
+            log.warn("PayFast ITN rejected: missing or invalid signature for payment {}", paymentId);
             return;
         }
 
-        Payment payment = paymentRepository.findById(UUID.fromString(paymentId))
+        // Without a passphrase the signature is an unkeyed MD5 anyone can compute, so in live mode
+        // we refuse to trust ITNs until a passphrase is configured.
+        boolean live = !"sandbox".equalsIgnoreCase(mode);
+        if (live && (passphrase == null || passphrase.isBlank())) {
+            log.error("PayFast ITN refused: PAYFAST_PASSPHRASE must be set in live mode");
+            return;
+        }
+
+        // 2. The notification must be for our merchant account.
+        if (!merchantId.equals(payload.get("merchant_id"))) {
+            log.warn("PayFast ITN rejected: merchant_id mismatch for payment {}", paymentId);
+            return;
+        }
+
+        UUID paymentUuid;
+        try {
+            paymentUuid = UUID.fromString(paymentId);
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException("Invalid payment id");
+        }
+        Payment payment = paymentRepository.findById(paymentUuid)
                 .orElseThrow(() -> new BadRequestException("Payment not found: " + paymentId));
+
+        // 3. For a COMPLETE notification the amount paid must equal the amount we asked for.
+        if ("COMPLETE".equalsIgnoreCase(paymentStatus)) {
+            java.math.BigDecimal paid;
+            try {
+                paid = new java.math.BigDecimal(payload.getOrDefault("amount_gross", "")).setScale(2, RoundingMode.HALF_UP);
+            } catch (NumberFormatException e) {
+                log.warn("PayFast ITN rejected: invalid amount_gross for payment {}", paymentId);
+                return;
+            }
+            if (paid.compareTo(payment.getAmount().setScale(2, RoundingMode.HALF_UP)) != 0) {
+                log.error("PayFast ITN rejected: amount mismatch for payment {} (expected {}, got {})",
+                        paymentId, payment.getAmount(), paid);
+                return;
+            }
+        }
+
+        // 4. Ask PayFast to confirm this notification is genuine.
+        if (serverValidationEnabled && !validateWithPayFast(rawBody)) {
+            log.warn("PayFast ITN rejected: PayFast did not confirm notification for payment {}", paymentId);
+            return;
+        }
 
         // store raw payload for audit
         try {
@@ -203,9 +253,26 @@ public class PayFastService {
 
         String calculated = md5(baseString);
 
-        log.info("PayFast ITN verify: calculated={}, received={}", calculated, receivedSignature);
-
         return calculated.equalsIgnoreCase(receivedSignature);
+    }
+
+    /** POSTs the notification (minus signature) back to PayFast; it must answer VALID. Network errors propagate so PayFast retries. */
+    boolean validateWithPayFast(String rawBody) {
+        String url = "sandbox".equalsIgnoreCase(mode) ? SANDBOX_VALIDATE : LIVE_VALIDATE;
+        try {
+            var request = java.net.http.HttpRequest.newBuilder(java.net.URI.create(url))
+                    .timeout(java.time.Duration.ofSeconds(10))
+                    .header("Content-Type", "application/x-www-form-urlencoded")
+                    .POST(java.net.http.HttpRequest.BodyPublishers.ofString(buildVerificationBaseString(rawBody)))
+                    .build();
+            var response = httpClient.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
+            return response.statusCode() == 200 && "VALID".equalsIgnoreCase(response.body().trim());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("PayFast validation interrupted", e);
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException("PayFast validation request failed", e);
+        }
     }
 
     LinkedHashMap<String, String> parseFormEncodedBody(String rawBody) {

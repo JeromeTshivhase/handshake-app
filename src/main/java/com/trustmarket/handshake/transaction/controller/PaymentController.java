@@ -113,7 +113,7 @@ public class PaymentController {
         }
 
         String rawBody = readRawBody(request);
-        log.info("PayFast ITN received. remoteAddr={} body={}", remoteAddr, rawBody);
+        log.info("PayFast ITN received. remoteAddr={} bytes={}", remoteAddr, rawBody == null ? 0 : rawBody.length());
         payFastService.processItn(rawBody);
         return ResponseEntity.ok("OK");
     }
