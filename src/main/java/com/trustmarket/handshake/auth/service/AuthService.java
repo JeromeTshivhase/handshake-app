@@ -127,6 +127,11 @@ public class AuthService {
         return buildAuthResponse(user, access, refresh);
     }
 
+    /** Issues a fresh access + refresh token pair for an already-authenticated user (e.g. Google sign-in). */
+    public com.trustmarket.handshake.auth.dto.AuthResponse issueTokens(User user) {
+        return buildAuthResponse(user, newAccessToken(user), issueAndStoreRefreshToken(user));
+    }
+
     public String newAccessToken(User user) {
         return jwtService.generateAccessToken(user.getId(), user.getEmail(), user.getRole().name());
     }

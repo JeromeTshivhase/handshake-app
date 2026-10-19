@@ -23,6 +23,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AuthController {
     private final AuthService authService;
+    private final com.trustmarket.handshake.auth.service.GoogleAuthService googleAuthService;
     private final JwtService jwtService;
     private final RateLimiterService rateLimiterService;
 
@@ -44,6 +45,16 @@ public class AuthController {
             throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Too many login attempts. Please try again later.");
         }
         return ApiResponse.ok(authService.login(req));
+    }
+
+    @PostMapping("/google")
+    public ApiResponse<AuthResponse> google(@Valid @RequestBody com.trustmarket.handshake.auth.dto.GoogleLoginRequest req,
+                                            HttpServletRequest request) {
+        Bucket bucket = rateLimiterService.resolveBucket("login:" + resolveClientIp(request));
+        if (!bucket.tryConsume(1)) {
+            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Too many login attempts. Please try again later.");
+        }
+        return ApiResponse.ok(googleAuthService.login(req.getIdToken()));
     }
 
     @PostMapping("/refresh")
