@@ -136,11 +136,84 @@ class PayFastServiceTest {
         when(paymentRepository.findById(payment.getId())).thenReturn(Optional.of(payment));
         when(paymentRepository.save(payment)).thenReturn(payment);
 
-        payFastService.processItn("m_payment_id=" + payment.getId() + "&payment_status=COMPLETE&pf_payment_id=pf-123");
+        payFastService.processItn(signedItn(payment.getId(), "COMPLETE", "1500.00", "1000"));
 
         assertEquals(PaymentStatus.PAID, payment.getStatus());
         verify(transactionService).markEscrowHeld(txn);
         verify(notificationPublisher).publishPaymentPaid(payment);
+    }
+
+    private String signedItn(UUID paymentId, String status, String amount, String merchant) {
+        String base = "m_payment_id=" + paymentId + "&pf_payment_id=pf-123&payment_status=" + status
+                + "&amount_gross=" + amount + "&merchant_id=" + merchant;
+        return base + "&signature=" + md5(base);
+    }
+
+    private Payment pendingPayment() {
+        Transaction txn = transaction();
+        return Payment.builder()
+                .id(UUID.randomUUID())
+                .transaction(txn)
+                .amount(txn.getAmount())
+                .provider(PaymentProvider.PAYFAST)
+                .status(PaymentStatus.PENDING)
+                .build();
+    }
+
+    @Test
+    void processItnRejectsMissingSignature() {
+        Payment payment = pendingPayment();
+
+        payFastService.processItn("m_payment_id=" + payment.getId() + "&payment_status=COMPLETE&amount_gross=1500.00&merchant_id=1000");
+
+        assertEquals(PaymentStatus.PENDING, payment.getStatus());
+        verifyNoInteractions(paymentRepository, transactionService, notificationPublisher);
+    }
+
+    @Test
+    void processItnRejectsWrongAmount() {
+        Payment payment = pendingPayment();
+        when(paymentRepository.findById(payment.getId())).thenReturn(Optional.of(payment));
+
+        payFastService.processItn(signedItn(payment.getId(), "COMPLETE", "1.00", "1000"));
+
+        assertEquals(PaymentStatus.PENDING, payment.getStatus());
+        verifyNoInteractions(transactionService, notificationPublisher);
+    }
+
+    @Test
+    void processItnRejectsWrongMerchant() {
+        Payment payment = pendingPayment();
+
+        payFastService.processItn(signedItn(payment.getId(), "COMPLETE", "1500.00", "9999"));
+
+        assertEquals(PaymentStatus.PENDING, payment.getStatus());
+        verifyNoInteractions(paymentRepository, transactionService, notificationPublisher);
+    }
+
+    @Test
+    void processItnRefusesLiveModeWithoutPassphrase() {
+        ReflectionTestUtils.setField(payFastService, "mode", "live");
+        Payment payment = pendingPayment();
+
+        payFastService.processItn(signedItn(payment.getId(), "COMPLETE", "1500.00", "1000"));
+
+        assertEquals(PaymentStatus.PENDING, payment.getStatus());
+        verifyNoInteractions(paymentRepository, transactionService, notificationPublisher);
+    }
+
+    @Test
+    void processItnRejectsWhenPayFastDoesNotConfirm() {
+        PayFastService spy = org.mockito.Mockito.spy(payFastService);
+        ReflectionTestUtils.setField(spy, "serverValidationEnabled", true);
+        org.mockito.Mockito.doReturn(false).when(spy).validateWithPayFast(any());
+        Payment payment = pendingPayment();
+        when(paymentRepository.findById(payment.getId())).thenReturn(Optional.of(payment));
+
+        spy.processItn(signedItn(payment.getId(), "COMPLETE", "1500.00", "1000"));
+
+        assertEquals(PaymentStatus.PENDING, payment.getStatus());
+        verifyNoInteractions(transactionService, notificationPublisher);
     }
 
     private Transaction transaction() {

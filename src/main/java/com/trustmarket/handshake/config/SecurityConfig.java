@@ -84,6 +84,9 @@ public class SecurityConfig {
                                 "/webjars/**"
                         ).hasRole("ADMIN")
 
+                        // The caller's own listings need a login (must precede the public browsing rule)
+                        .requestMatchers(HttpMethod.GET, "/api/listings/me").authenticated()
+
                         // Public browsing
                         .requestMatchers(HttpMethod.GET, "/api/listings/**", "/api/categories/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/listings/search", "/api/search").permitAll()

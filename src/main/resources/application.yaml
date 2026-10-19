@@ -87,6 +87,8 @@ payfast:
   merchant-key: ${PAYFAST_MERCHANT_KEY}
   passphrase: ${PAYFAST_PASSPHRASE:}
   mode: ${PAYFAST_MODE}
+  # Ask PayFast to confirm every ITN (recommended; keep true)
+  server-validation-enabled: ${PAYFAST_SERVER_VALIDATION_ENABLED:true}
   return-url: ${PAYFAST_RETURN_URL:${APP_DOMAIN:https://overintense-unrelatedly-lilly.ngrok-free.dev}/payment/success}
   cancel-url: ${PAYFAST_CANCEL_URL:${APP_DOMAIN:https://overintense-unrelatedly-lilly.ngrok-free.dev}/payment/cancel}
   notify-url: ${PAYFAST_NOTIFY_URL:${APP_DOMAIN:https://overintense-unrelatedly-lilly.ngrok-free.dev}/api/payments/payfast/notify}
